@@ -92,9 +92,31 @@ class TransferenciaAlmacenController extends Controller
         try {
             DB::beginTransaction();
 
-            // Generar número de documento
-            $lastTrans = TransferenciaAlmacen::orderBy('id_transferencia', 'desc')->lockForUpdate()->first();
-            $num = $lastTrans ? intval(substr($lastTrans->numero_transferencia, 3)) + 1 : 1;
+            // Generar número correlativo con prefijo TR- (Transferencia de Almacén)
+            $lastTrans = TransferenciaAlmacen::where('numero_transferencia', 'like', 'TR-%')
+                ->where('numero_transferencia', 'not like', 'TRP-%')
+                ->orderBy('id_transferencia', 'desc')
+                ->lockForUpdate()
+                ->first();
+
+            $num = 1;
+            if ($lastTrans) {
+                if (preg_match('/^TR-(\d+)$/', $lastTrans->numero_transferencia, $matches)) {
+                    $num = intval($matches[1]) + 1;
+                } else {
+                    $maxNum = DB::table('transferencias_almacen')
+                        ->where('numero_transferencia', 'like', 'TR-%')
+                        ->where('numero_transferencia', 'not like', 'TRP-%')
+                        ->selectRaw("MAX(CAST(SUBSTRING(numero_transferencia, 4) AS UNSIGNED)) as max_num")
+                        ->value('max_num');
+                    $num = ($maxNum ?? 0) + 1;
+                }
+            }
+
+            while (TransferenciaAlmacen::where('numero_transferencia', 'TR-' . str_pad($num, 6, '0', STR_PAD_LEFT))->exists()) {
+                $num++;
+            }
+
             $numero_transferencia = 'TR-' . str_pad($num, 6, '0', STR_PAD_LEFT);
 
             $transferencia = TransferenciaAlmacen::create([
@@ -104,12 +126,12 @@ class TransferenciaAlmacenController extends Controller
                 'fecha_transferencia'    => $request->fecha_transferencia,
                 'observaciones'          => $request->observaciones,
                 'estado'                 => 'COMPLETADO',
-                'usuario_registro'       => Auth::user()->id_usuario ?? 5,
+                'usuario_registro'       => Auth::id(),
             ]);
 
             $origen = $request->codigo_almacen_origen;
             $destino = $request->codigo_almacen_destino;
-            $usuario_id = Auth::user()->id_usuario ?? 5;
+            $usuario_id = Auth::id();
 
             foreach ($request->items as $item) {
                 $invOrigen = DB::table('inventario')->where('id_inventario', $item['id_inventario'])->lockForUpdate()->first();
@@ -187,14 +209,16 @@ class TransferenciaAlmacenController extends Controller
                     ]);
                 } else {
                     DB::table('inventario')->insert([
-                        'codigo_producto'   => $item['codigo_producto'],
-                        'codigo_almacen'    => $destino,
-                        'stock_actual'      => $item['cantidad'],
-                        'stock_minimo'      => 0,
-                        'costo_promedio'    => $costoUnitario,
-                        'lote'              => $item['lote'],
-                        'fecha_vencimiento' => $invOrigen->fecha_vencimiento,
-                        'estado'            => 1,
+                        'codigo_producto'           => $item['codigo_producto'],
+                        'codigo_almacen'            => $destino,
+                        'stock_actual'              => $item['cantidad'],
+                        'stock_minimo'              => 0,
+                        'costo_promedio'            => $costoUnitario,
+                        'lote'                      => $item['lote'],
+                        'fecha_vencimiento'         => $invOrigen->fecha_vencimiento,
+                        'estado'                    => 1,
+                        'fecha_ultimo_movimiento'   => $request->fecha_transferencia,
+                        'usuario_ultimo_movimiento' => $usuario_id,
                     ]);
                 }
 
@@ -282,7 +306,7 @@ class TransferenciaAlmacenController extends Controller
 
             $origen = $transferencia->codigo_almacen_origen;
             $destino = $transferencia->codigo_almacen_destino;
-            $usuario_id = Auth::user()->id_usuario ?? 5;
+            $usuario_id = Auth::id();
 
             $detalles = TransferenciaAlmacenDetalle::where('id_transferencia', $id)->get();
 
@@ -367,14 +391,16 @@ class TransferenciaAlmacenController extends Controller
                     ]);
                 } else {
                     DB::table('inventario')->insert([
-                        'codigo_producto'   => $det->codigo_producto,
-                        'codigo_almacen'    => $origen,
-                        'stock_actual'      => $det->cantidad,
-                        'stock_minimo'      => 0,
-                        'costo_promedio'    => $costoUnitario,
-                        'lote'              => $det->lote,
-                        'fecha_vencimiento' => null,
-                        'estado'            => 1,
+                        'codigo_producto'           => $det->codigo_producto,
+                        'codigo_almacen'            => $origen,
+                        'stock_actual'              => $det->cantidad,
+                        'stock_minimo'              => 0,
+                        'costo_promedio'            => $costoUnitario,
+                        'lote'                      => $det->lote,
+                        'fecha_vencimiento'         => null,
+                        'estado'                    => 1,
+                        'fecha_ultimo_movimiento'   => now(),
+                        'usuario_ultimo_movimiento' => $usuario_id,
                     ]);
                 }
 

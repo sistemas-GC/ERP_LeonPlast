@@ -22,29 +22,40 @@ class ProductoProcesoController extends Controller
     public function create()
     {
         $moldes = Molde::activos()->orderBy('descripcion', 'asc')->get();
+        $siguiente_codigo = (ProductoProceso::max('codigo') ?? 0) + 1;
 
-        return view('tablas_maestras.productos_proceso.create', compact('moldes'));
+        return view('tablas_maestras.productos_proceso.create', compact('moldes', 'siguiente_codigo'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'codigo' => 'required|string|max:20|unique:producto_proceso,codigo',
+            'codigo' => 'nullable|integer|min:1|unique:producto_proceso,codigo',
             'descripcion' => 'required|string|max:100',
             'moldes' => 'nullable|array',
             'moldes.*' => 'string|exists:molde,codigo',
         ], [
-            'codigo.required' => 'El código es obligatorio.',
-            'codigo.unique' => 'Este código ya existe en el sistema.',
+            'codigo.integer' => 'El código debe ser un número entero (ej: 19).',
+            'codigo.min' => 'El código numérico debe ser mayor a 0.',
+            'codigo.unique' => 'Este código numérico ya existe en el sistema.',
             'descripcion.required' => 'La descripción es obligatoria.',
         ]);
 
         try {
             DB::beginTransaction();
 
+            $codigo = $request->filled('codigo')
+                ? (int) $request->codigo
+                : ((ProductoProceso::max('codigo') ?? 0) + 1);
+
+            // Verificar si el código auto-calculado ya existe
+            if (!$request->filled('codigo') && ProductoProceso::where('codigo', $codigo)->exists()) {
+                $codigo = (ProductoProceso::max('codigo') ?? 0) + 1;
+            }
+
             $producto = ProductoProceso::create([
-                'codigo' => strtoupper($request->codigo),
-                'descripcion' => $request->descripcion,
+                'codigo' => $codigo,
+                'descripcion' => trim($request->descripcion),
                 'estado' => 1,
             ]);
 
@@ -63,7 +74,7 @@ class ProductoProcesoController extends Controller
             DB::commit();
 
             return redirect()->route('productos_proceso.index')
-                ->with('success', 'Producto de proceso creado correctamente.');
+                ->with('success', 'Producto de proceso creado correctamente con código #' . $producto->codigo . '.');
 
         } catch (\Exception $e) {
             DB::rollBack();

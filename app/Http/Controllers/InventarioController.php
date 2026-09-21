@@ -250,7 +250,7 @@ class InventarioController extends Controller
             $lote = $ingreso->lote_produccion;
             $idop = $ingreso->idop;
             $id_proceso = $ingreso->id_proceso;
-            $usuario_movimiento = Auth::id() ?? 5;
+            $usuario_movimiento = Auth::id();
             $ingreso_base_fecha = \Carbon\Carbon::parse($ingreso->fecha_ingreso ?? now());
             $fecha_movimiento = $request->filled('fecha_recepcion') 
                 ? \Carbon\Carbon::parse($request->fecha_recepcion)->setTime($ingreso_base_fecha->hour, $ingreso_base_fecha->minute, $ingreso_base_fecha->second)->addSeconds(5)->format('Y-m-d H:i:s') 
@@ -389,7 +389,7 @@ class InventarioController extends Controller
                 throw new \Exception("No hay registros pendientes para este producto y OP.");
             }
 
-            $usuario_movimiento = Auth::id() ?? 5;
+            $usuario_movimiento = Auth::id();
             $kardexService = app(KardexService::class);
             $ingreso_base_fecha = \Carbon\Carbon::parse($ingresos->last()->fecha_ingreso ?? now());
             $fecha_movimiento = $request->filled('fecha_recepcion') 
@@ -921,19 +921,26 @@ class InventarioController extends Controller
             'cantidad'             => 'required|numeric|min:0.01',
             'tipo'                 => 'required|in:INGRESO,SALIDA',
             'codigo_unidad_medida' => 'required',
-            'lote'                 => 'required|string|max:50',
+            'lote'                 => 'nullable|string|max:50',
             'costo_unitario'       => 'nullable|numeric|min:0'
         ]);
 
         try {
             DB::beginTransaction();
 
-            $registroInventario = DB::table('inventario')
+            $queryInv = DB::table('inventario')
                 ->where('codigo_producto', $request->codigo_producto)
-                ->where('codigo_almacen', $request->codigo_almacen)
-                ->where('lote', $request->lote)
-                ->lockForUpdate()
-                ->first();
+                ->where('codigo_almacen', $request->codigo_almacen);
+
+            if (!empty($request->lote)) {
+                $queryInv->where('lote', $request->lote);
+            } else {
+                $queryInv->where(function($q) {
+                    $q->whereNull('lote')->orWhere('lote', '');
+                });
+            }
+
+            $registroInventario = $queryInv->lockForUpdate()->first();
 
             $saldo_anterior = $registroInventario ? $registroInventario->stock_actual : 0;
             

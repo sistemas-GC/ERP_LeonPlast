@@ -1,5 +1,5 @@
-@import 'tailwindcss';
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import 'tailwindcss';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -139,16 +139,24 @@
     .input-field {
         width: 100%;
         border: 1px solid #cbd5e1;
-        border-radius: var(--radius-input);
-        padding: 0.625rem 1rem;
-        font-size: 0.875rem;
+        border-radius: 0.5rem;
+        padding: 0.45rem 0.75rem;
+        font-size: 0.8125rem;
+        line-height: 1.25rem;
         outline: none;
         background-color: #ffffff;
         transition: all 0.2s ease;
     }
+    select.input-field {
+        padding-right: 1.75rem;
+    }
+    input[type="date"].input-field {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
     .input-field:focus {
         border-color: #059669;
-        box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.15);
+        box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
     }
 
     .card {

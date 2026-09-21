@@ -3,37 +3,37 @@
 namespace Tests\Feature;
 
 use App\Http\Controllers\OrdenProcesoController;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class OrdenProcesoHelperTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        DB::table('formula_produccion')->insert([
+        DB::table('producto')->insertOrIgnore([
+            ['codigo' => 'PEP-001', 'descripcion' => 'Producto Resultante', 'codigo_tipo_producto' => 'PEP', 'estado' => 1],
+            ['codigo' => 'MZ07-001', 'descripcion' => 'Mezclado 001', 'codigo_tipo_producto' => 'MTP', 'estado' => 1],
+            ['codigo' => 'CA07-001', 'descripcion' => 'Inyectado 001', 'codigo_tipo_producto' => 'PEP', 'estado' => 1],
+            ['codigo' => 'X', 'descripcion' => 'No PEP', 'codigo_tipo_producto' => 'MTP', 'estado' => 1],
+        ]);
+
+        DB::table('formula_produccion')->insertOrIgnore([
             'codigo' => 'F001',
             'descripcion' => 'Formula Test',
             'codigo_producto_resultante' => 'PEP-001',
             'estado' => 1,
         ]);
 
-        DB::table('formula_produccion')->insert([
+        DB::table('formula_produccion')->insertOrIgnore([
             'codigo' => 'F002',
             'descripcion' => 'Formula Sin Resultante',
             'codigo_producto_resultante' => null,
             'estado' => 1,
-        ]);
-
-        DB::table('producto')->insert([
-            ['codigo' => 'PEP-001', 'descripcion' => 'Producto Resultante', 'codigo_tipo_producto' => 'PEP', 'estado' => 1],
-            ['codigo' => 'MZ07-001', 'descripcion' => 'Mezclado 001', 'codigo_tipo_producto' => 'MTP', 'estado' => 1],
-            ['codigo' => 'CA07-001', 'descripcion' => 'Inyectado 001', 'codigo_tipo_producto' => 'PEP', 'estado' => 1],
-            ['codigo' => 'X', 'descripcion' => 'No PEP', 'codigo_tipo_producto' => 'MTP', 'estado' => 1],
         ]);
     }
 

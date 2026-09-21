@@ -46,7 +46,7 @@
                             📅 Fecha <span class="text-red-500">*</span>
                         </label>
                         <input type="date" name="fecha" id="fecha" required value="{{ old('fecha', date('Y-m-d')) }}"
-                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-primary focus:border-primary" max="{{ date('Y-m-d') }}">
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-primary focus:border-primary">
                     </div>
 
                     {{-- Hora Inicio --}}
@@ -77,21 +77,21 @@
                     {{-- Cantidad / Peso Inicial --}}
                     <div id="container_cantidad" style="display: none;">
                         <label for="cantidad" class="block text-sm font-medium text-slate-700 mb-1">
-                            <i class="fas fa-weight"></i> Peso Bruto del Rollo (KG)
+                            <i class="fas fa-weight-hanging text-slate-500 mr-1"></i> Peso del Rollo (KG)
                         </label>
                         <input type="number" step="0.01" name="cantidad" id="cantidad" value="{{ old('cantidad') }}"
-                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-primary focus:border-primary">
-                        <p class="mt-1 text-xs text-slate-500">Opcional. Peso total del rollo.</p>
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-primary focus:border-primary" placeholder="Ej: 50.50">
+                        <p class="mt-1 text-xs text-slate-500">Peso total del rollo a procesar.</p>
                     </div>
 
                     {{-- Tara / Peso Empaque --}}
                     <div id="container_tara" style="display: none;">
                         <label for="tara" class="block text-sm font-medium text-slate-700 mb-1">
-                            <i class="fas fa-box"></i> Tara / Peso Empaque (KG)
+                            <i class="fas fa-box text-slate-500 mr-1"></i> Tara / Peso Empaque (KG)
                         </label>
                         <input type="number" step="0.01" name="tara" id="tara" value="{{ old('tara') }}"
-                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-primary focus:border-primary">
-                        <p class="mt-1 text-xs text-slate-500">Opcional. Se descontará del Peso Bruto.</p>
+                            class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-primary focus:border-primary" placeholder="Ej: 1.20">
+                        <p class="mt-1 text-xs text-slate-500">Opcional. Se descontará del Peso del Rollo.</p>
                     </div>
 
                     {{-- Observaciones --}}
@@ -123,24 +123,31 @@
         const containerTara = document.getElementById('container_tara');
         
         function toggleCantidad() {
+            if (!selectProducto) return;
             const selectedOption = selectProducto.options[selectProducto.selectedIndex];
-            if (!selectedOption) return;
+            if (!selectedOption || !selectedOption.value) {
+                if (containerCantidad) containerCantidad.style.display = 'none';
+                if (containerTara) containerTara.style.display = 'none';
+                return;
+            }
             
             const texto = selectedOption.text.toUpperCase();
-            // Mostrar si es Troquelado (incluye grande o chico troquelado)
+            // Solo mostrar si es Troquelado (ej: CLIP GRANDE TROQUELADO, CLIP CHICO TROQUELADO)
             if (texto.includes('TROQUELADO')) {
                 containerCantidad.style.display = 'block';
                 containerTara.style.display = 'block';
             } else {
                 containerCantidad.style.display = 'none';
                 containerTara.style.display = 'none';
-                document.getElementById('cantidad').value = '';
-                document.getElementById('tara').value = '';
+                const inputCantidad = document.getElementById('cantidad');
+                const inputTara = document.getElementById('tara');
+                if (inputCantidad) inputCantidad.value = '';
+                if (inputTara) inputTara.value = '';
             }
         }
         
         selectProducto.addEventListener('change', toggleCantidad);
-        toggleCantidad(); // Ejecutar al inicio por si ya hay un valor seleccionado
+        toggleCantidad();
     });
 </script>
 @endsection

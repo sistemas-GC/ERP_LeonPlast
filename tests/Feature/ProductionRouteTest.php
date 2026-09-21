@@ -18,4 +18,16 @@ class ProductionRouteTest extends TestCase
         $this->assertTrue(route('reportes.produccion') !== null);
         $this->assertTrue(route('reportes.inventario') !== null);
     }
+
+    public function test_ejecutar_view_loads_successfully(): void
+    {
+        $admin = \App\Models\Usuario::where('rol', 'Administrador')->first();
+        $proceso = \App\Models\OrdenProceso::first();
+
+        if ($admin && $proceso) {
+            $response = $this->actingAs($admin)->get(route('ordenes.procesos.ejecutar', [$proceso->idop, $proceso->id]));
+            $response->assertStatus(200);
+            $response->assertSee('Ejecución');
+        }
+    }
 }

@@ -11,9 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::dropIfExists('reportes_problemas');
         Schema::create('reportes_problemas', function (Blueprint $table) {
             $table->id('id_reporte');
-            $table->integer('id_usuario')->index();
+            $table->unsignedBigInteger('id_usuario')->index();
             $table->string('titulo', 255);
             $table->enum('tipo_problema', [
                 'ERROR_SISTEMA',

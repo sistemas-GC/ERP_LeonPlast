@@ -81,7 +81,7 @@ class GuiaTercerosSalidaController extends Controller
                 'motivo_traslado' => 'SERVICIOS DE TERCEROS',
                 'observaciones' => $request->observaciones,
                 'estado_guia' => 'EMITIDA',
-                'usuario_registro' => Auth::id() ?? 1,
+                'usuario_registro' => Auth::id(),
             ]);
 
             foreach ($request->productos as $item) {
@@ -111,7 +111,9 @@ class GuiaTercerosSalidaController extends Controller
                     ->where('codigo_producto', $item['codigo'])
                     ->where('stock_actual', '>', 0)
                     ->orderBy('id_inventario', 'asc')
-                    ->get();                $cantidadRestante = $item['cantidad'];
+                    ->get();
+
+                $cantidadRestante = $item['cantidad'];
                 
                 $totalDescontado = 0;
                 $totalCostoLotes = 0;
@@ -145,7 +147,7 @@ class GuiaTercerosSalidaController extends Controller
                         'documento_referencia' => 'GUIA_SALIDA_TERCEROS',
                         'numero_referencia' => $guia->numero_guia,
                         'observaciones' => 'Salida para Tercero: ' . $guia->proveedor_destino,
-                        'usuario_movimiento' => Auth::id() ?? 1,
+                        'usuario_movimiento' => Auth::id(),
                         'estado' => 1,
                         'fecha_movimiento' => Carbon::parse($request->fecha_emision)->setTime(now()->hour, now()->minute, now()->second)->format('Y-m-d H:i:s'),
                         'tiene_kardex' => 1
@@ -178,7 +180,7 @@ class GuiaTercerosSalidaController extends Controller
                         'total_salida' => $totalCostoLotes,
                         'observaciones' => 'Envio a Tercero: ' . $guia->proveedor_destino,
                         'lote' => 'VARIOS LOTES',
-                        'usuario_registro' => Auth::id() ?? 1
+                        'usuario_registro' => Auth::id()
                     ]);
                 }
                 

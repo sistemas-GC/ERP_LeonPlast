@@ -22,7 +22,10 @@ class OrdenProceso extends Model
         'fecha_inicio',
         'fecha_fin',
         'estado',
-        'estado_avance'
+        'estado_avance',
+        'inyectada_inicial',
+        'inyectada_final',
+        'tiempo_ciclo'
     ];
 
     public function orden()

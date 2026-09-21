@@ -101,30 +101,40 @@ class ParametroSistemaController extends Controller
             
             $tablas_transaccionales = [
                 'compras',
-                'despacho_requerimiento_lotes',
                 'detalle_compra',
-                'detalle_guia_compras',
-                'detalle_requerimientos_materiales',
+                'compra_cuotas',
                 'guia_remision_compras',
-                'inventario',
-                'kardex',
-                'mermas',
-                'movimientos_inventario',
-                'orden_proceso',
+                'detalle_guia_compras',
+                'requerimientos_materiales',
+                'detalle_requerimientos_materiales',
+                'despacho_requerimiento_lotes',
                 'orden_produccion_global',
                 'componentes_orden_produccion_global',
-                'produccion_costos',
+                'operaciones_ingreso_orden_produccion_global',
+                'orden_proceso',
                 'produccion_ingresos_proceso',
-                'requerimientos_materiales',
+                'produccion_consumos',
+                'produccion_costos',
+                'produccion_valorizacion',
+                'mermas',
                 'transferencias_almacen',
                 'transferencias_almacen_detalle',
                 'guia_remision_terceros_salida',
                 'guia_remision_terceros_salida_detalle',
                 'conciliacion_terceros',
+                'inventario',
+                'movimientos_inventario',
+                'kardex',
+                'bitacora_sistema',
+                'notificaciones',
+                'reportes_problemas',
+                'user_logins',
             ];
 
             foreach ($tablas_transaccionales as $tabla) {
-                \Illuminate\Support\Facades\DB::table($tabla)->truncate();
+                if (\Illuminate\Support\Facades\Schema::hasTable($tabla)) {
+                    \Illuminate\Support\Facades\DB::table($tabla)->truncate();
+                }
             }
             
             \Illuminate\Support\Facades\DB::statement('SET FOREIGN_KEY_CHECKS=1;');

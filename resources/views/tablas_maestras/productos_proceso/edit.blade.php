@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="container mx-auto pb-8 md:pb-10 max-w-2xl">
-    <x-page-header title="Editar Producto de Proceso" subtitle="Modificar el producto en proceso: {{ $producto->codigo }}" />
+    <x-page-header title="Editar Producto de Proceso" subtitle="Modificar la línea de producto en proceso: #{{ $producto->codigo }}" />
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200/60 overflow-hidden">
         <div class="p-6">
@@ -12,8 +12,8 @@
                 @csrf
                 @method('PUT')
                 
-                <x-form-group label="Código">
-                    <input type="text" name="codigo" id="codigo" value="{{ $producto->codigo }}" disabled class="input-field bg-slate-50" />
+                <x-form-group label="Código Numérico">
+                    <input type="text" name="codigo" id="codigo" value="{{ $producto->codigo }}" disabled class="input-field bg-slate-50 font-bold text-slate-800" />
                 </x-form-group>
 
                 <x-form-group label="Descripción" required :error="$errors->first('descripcion')">

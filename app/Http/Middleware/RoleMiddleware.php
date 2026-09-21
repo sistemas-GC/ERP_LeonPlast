@@ -19,9 +19,10 @@ class RoleMiddleware
         }
 
         $usuarioRol = Auth::user()->rol;
+        $rolesUpper = array_map('strtoupper', $roles);
 
-        // Compatibilidad con rutas estáticas (ej. role:Supervisor) y acceso total a Administrador
-        if ($usuarioRol === 'Administrador' || (!empty($roles) && in_array($usuarioRol, $roles))) {
+        // Compatibilidad con rutas estáticas (ej. role:Supervisor,Produccion) y acceso total a Administrador
+        if (strtoupper($usuarioRol) === 'ADMINISTRADOR' || (!empty($rolesUpper) && in_array(strtoupper($usuarioRol), $rolesUpper))) {
             return $next($request);
         }
 

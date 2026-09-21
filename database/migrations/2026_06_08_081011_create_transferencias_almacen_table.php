@@ -11,20 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('transferencias_almacen', function (Blueprint $table) {
-            $table->id('id_transferencia');
-            $table->string('numero_transferencia', 20)->unique();
-            $table->string('codigo_almacen_origen', 10)->collation('utf8mb4_general_ci');
-            $table->string('codigo_almacen_destino', 10)->collation('utf8mb4_general_ci');
-            $table->dateTime('fecha_transferencia');
-            $table->text('observaciones')->nullable();
-            $table->string('estado', 20)->default('COMPLETADO'); // COMPLETADO, ANULADO
-            $table->unsignedBigInteger('usuario_registro')->nullable();
-            $table->timestamps();
-
-            $table->foreign('codigo_almacen_origen')->references('codigo_almacen')->on('almacen');
-            $table->foreign('codigo_almacen_destino')->references('codigo_almacen')->on('almacen');
-        });
+        if (!Schema::hasTable('transferencias_almacen')) {
+            Schema::create('transferencias_almacen', function (Blueprint $table) {
+                $table->id('id_transferencia');
+                $table->string('numero_transferencia', 20)->unique();
+                $table->string('codigo_almacen_origen', 10);
+                $table->string('codigo_almacen_destino', 10);
+                $table->dateTime('fecha_transferencia');
+                $table->text('observaciones')->nullable();
+                $table->string('estado', 20)->default('COMPLETADO'); // COMPLETADO, ANULADO
+                $table->unsignedBigInteger('usuario_registro')->nullable();
+                $table->timestamps();
+            });
+        }
     }
 
     /**

@@ -19,6 +19,7 @@ class KardexService
             ->where('codigo_almacen', $codigoAlmacen)
             ->orderBy('fecha_movimiento', 'desc')
             ->orderBy('id_kardex', 'desc')
+            ->lockForUpdate()
             ->first();
 
         $saldoAnterior = $ultimo?->cantidad_saldo ?? 0;
@@ -26,29 +27,29 @@ class KardexService
         $costoPromedioAnterior = $ultimo?->costo_promedio ?? 0;
 
         if ($cantidadEntrada > 0) {
-            $totalEntrada = $cantidadEntrada * $costoUnitarioEntrada;
-            $nuevaCantidadSaldo = $saldoAnterior + $cantidadEntrada;
-            $nuevoTotalSaldo = $totalSaldoAnterior + $totalEntrada;
+            $totalEntrada = round($cantidadEntrada * $costoUnitarioEntrada, 2);
+            $nuevaCantidadSaldo = round($saldoAnterior + $cantidadEntrada, 3);
+            $nuevoTotalSaldo = round($totalSaldoAnterior + $totalEntrada, 2);
             $nuevoCostoPromedio = $nuevaCantidadSaldo > 0
-                ? round($nuevoTotalSaldo / $nuevaCantidadSaldo, 9)
-                : $costoUnitarioEntrada;
+                ? round($nuevoTotalSaldo / $nuevaCantidadSaldo, 6)
+                : round($costoUnitarioEntrada, 6);
 
             return [
-                'costo_entrada'  => $costoUnitarioEntrada,
+                'costo_entrada'  => round($costoUnitarioEntrada, 6),
                 'total_entrada'  => $totalEntrada,
                 'costo_salida'   => 0,
                 'total_salida'   => 0,
                 'cantidad_saldo' => $nuevaCantidadSaldo,
                 'costo_promedio' => $nuevoCostoPromedio,
-                'total_saldo'    => round($nuevaCantidadSaldo * $nuevoCostoPromedio, 9),
+                'total_saldo'    => round($nuevaCantidadSaldo * $nuevoCostoPromedio, 2),
             ];
         }
 
-        $costoSalida = max(0, $costoPromedioAnterior);
-        $totalSalida = $cantidadSalida * $costoSalida;
-        $nuevaCantidadSaldo = max(0, $saldoAnterior - $cantidadSalida);
+        $costoSalida = max(0, round($costoPromedioAnterior, 6));
+        $totalSalida = round($cantidadSalida * $costoSalida, 2);
+        $nuevaCantidadSaldo = max(0, round($saldoAnterior - $cantidadSalida, 3));
         $nuevoTotalSaldo = $nuevaCantidadSaldo > 0
-            ? round($nuevaCantidadSaldo * $costoSalida, 9)
+            ? round($nuevaCantidadSaldo * $costoSalida, 2)
             : 0;
 
         return [
@@ -69,6 +70,7 @@ class KardexService
             ->where('codigo_almacen', $codigoAlmacen)
             ->orderBy('fecha_movimiento', 'asc')
             ->orderBy('id_kardex', 'asc')
+            ->lockForUpdate()
             ->get();
 
         $cantidadAcumulada = 0;
@@ -78,25 +80,25 @@ class KardexService
         foreach ($movimientos as $mov) {
             if ($mov->tipo_movimiento === 'SALIDA' || ($mov->tipo_movimiento === 'EXTORNO' && $mov->cantidad_salida > 0)) {
                 $costoSalidaEfectivo = ($costoPromedio > 0) ? $costoPromedio : ($mov->costo_salida ?? 0);
-                $totalSalida = $mov->cantidad_salida * $costoSalidaEfectivo;
-                $cantidadAcumulada -= $mov->cantidad_salida;
-                $totalValorAcumulado = max(0, $totalValorAcumulado - $totalSalida);
+                $totalSalida = round($mov->cantidad_salida * $costoSalidaEfectivo, 2);
+                $cantidadAcumulada = round($cantidadAcumulada - $mov->cantidad_salida, 3);
+                $totalValorAcumulado = max(0, round($totalValorAcumulado - $totalSalida, 2));
                 DB::table('kardex')
                     ->where('id_kardex', $mov->id_kardex)
                     ->update([
-                        'costo_salida' => $costoSalidaEfectivo,
-                        'total_salida' => round($totalSalida, 2),
-                        'costo_promedio' => $costoPromedio,
+                        'costo_salida' => round($costoSalidaEfectivo, 6),
+                        'total_salida' => $totalSalida,
+                        'costo_promedio' => round($costoPromedio, 6),
                         'cantidad_saldo' => max(0, $cantidadAcumulada),
-                        'total_saldo' => max(0, round($cantidadAcumulada * $costoPromedio, 9)),
+                        'total_saldo' => max(0, round($cantidadAcumulada * $costoPromedio, 2)),
                     ]);
 
                 if ($mov->codigo_referencia_movimiento) {
                     DB::table('movimientos_inventario')
                         ->where('id_movimiento', $mov->codigo_referencia_movimiento)
                         ->update([
-                            'costo_unitario' => $costoSalidaEfectivo,
-                            'total' => round($totalSalida, 2)
+                            'costo_unitario' => round($costoSalidaEfectivo, 6),
+                            'total' => $totalSalida
                         ]);
                 }
 
@@ -111,7 +113,7 @@ class KardexService
                     if ($ingresoTransf && abs((float)$ingresoTransf->costo_entrada - (float)$costoSalidaEfectivo) > 0.000001) {
                         DB::table('kardex')
                             ->where('id_kardex', $ingresoTransf->id_kardex)
-                            ->update(['costo_entrada' => $costoSalidaEfectivo]);
+                            ->update(['costo_entrada' => round($costoSalidaEfectivo, 6)]);
                             
                         // Llamada recursiva para propagar el recálculo en el almacén destino
                         $this->recalcular($codigoProducto, $ingresoTransf->codigo_almacen);
@@ -122,41 +124,41 @@ class KardexService
             }
 
             if ($mov->tipo_movimiento === 'TRASPASO') {
-                $cantidadAcumulada += ($mov->cantidad_entrada - $mov->cantidad_salida);
-                $totalValorAcumulado = max(0, $cantidadAcumulada * $costoPromedio);
+                $cantidadAcumulada = round($cantidadAcumulada + ($mov->cantidad_entrada - $mov->cantidad_salida), 3);
+                $totalValorAcumulado = max(0, round($cantidadAcumulada * $costoPromedio, 2));
                 DB::table('kardex')
                     ->where('id_kardex', $mov->id_kardex)
                     ->update([
-                        'costo_promedio' => $costoPromedio,
+                        'costo_promedio' => round($costoPromedio, 6),
                         'cantidad_saldo' => max(0, $cantidadAcumulada),
-                        'total_saldo' => round($totalValorAcumulado, 9),
+                        'total_saldo' => $totalValorAcumulado,
                     ]);
                 continue;
             }
 
             $costoEntradaEfectivo = ($mov->costo_entrada > 0) ? $mov->costo_entrada : $costoPromedio;
-            $totalEntrada = $mov->cantidad_entrada * $costoEntradaEfectivo;
-            $cantidadAcumulada += $mov->cantidad_entrada;
-            $totalValorAcumulado += $totalEntrada;
+            $totalEntrada = round($mov->cantidad_entrada * $costoEntradaEfectivo, 2);
+            $cantidadAcumulada = round($cantidadAcumulada + $mov->cantidad_entrada, 3);
+            $totalValorAcumulado = round($totalValorAcumulado + $totalEntrada, 2);
             $costoPromedio = $cantidadAcumulada > 0
-                ? round($totalValorAcumulado / $cantidadAcumulada, 9)
+                ? round($totalValorAcumulado / $cantidadAcumulada, 6)
                 : 0;
 
             DB::table('kardex')
                 ->where('id_kardex', $mov->id_kardex)
                 ->update([
-                    'total_entrada'  => round($totalEntrada, 2),
+                    'total_entrada'  => $totalEntrada,
                     'costo_promedio' => $costoPromedio,
                     'cantidad_saldo' => max(0, $cantidadAcumulada),
-                    'total_saldo'    => round(max(0, $cantidadAcumulada) * $costoPromedio, 9),
+                    'total_saldo'    => max(0, round($cantidadAcumulada * $costoPromedio, 2)),
                 ]);
 
             if ($mov->codigo_referencia_movimiento) {
                 DB::table('movimientos_inventario')
                     ->where('id_movimiento', $mov->codigo_referencia_movimiento)
                     ->update([
-                        'costo_unitario' => $costoEntradaEfectivo,
-                        'total' => round($totalEntrada, 2)
+                        'costo_unitario' => round($costoEntradaEfectivo, 6),
+                        'total' => $totalEntrada
                     ]);
             }
         }
@@ -166,15 +168,19 @@ class KardexService
             ->where('codigo_almacen', $codigoAlmacen)
             ->orderBy('fecha_movimiento', 'desc')
             ->orderBy('id_kardex', 'desc')
-            ->first(['cantidad_saldo', 'costo_promedio']);
+            ->first(['cantidad_saldo', 'costo_promedio', 'fecha_movimiento']);
 
         if ($ultimo) {
+            $updateData = [
+                'costo_promedio' => $ultimo->costo_promedio,
+            ];
+            if ($ultimo->fecha_movimiento) {
+                $updateData['fecha_ultimo_movimiento'] = $ultimo->fecha_movimiento;
+            }
             DB::table('inventario')
                 ->where('codigo_producto', $codigoProducto)
                 ->where('codigo_almacen', $codigoAlmacen)
-                ->update([
-                    'costo_promedio' => $ultimo->costo_promedio,
-                ]);
+                ->update($updateData);
         }
     }
 }

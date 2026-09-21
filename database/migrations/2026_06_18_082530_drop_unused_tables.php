@@ -11,11 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Drop foreign keys first
-        Schema::table('orden_produccion_global', function (Blueprint $table) {
-            $table->dropForeign('fk_orden_produccion_global_insumo');
-            $table->dropColumn('codigo_insumo');
-        });
+        // Drop foreign keys first if column exists
+        if (Schema::hasColumn('orden_produccion_global', 'codigo_insumo')) {
+            try {
+                Schema::table('orden_produccion_global', function (Blueprint $table) {
+                    $table->dropForeign('fk_orden_produccion_global_insumo');
+                });
+            } catch (\Throwable $e) {}
+
+            try {
+                Schema::table('orden_produccion_global', function (Blueprint $table) {
+                    $table->dropColumn('codigo_insumo');
+                });
+            } catch (\Throwable $e) {}
+        }
 
         // Drop tables in correct order to avoid FK issues between them
         Schema::dropIfExists('operaciones_ingreso_orden_produccion_global');
@@ -26,7 +35,6 @@ return new class extends Migration
         Schema::dropIfExists('produccion_productos_proceso');
         Schema::dropIfExists('produccion_valorizacion');
         
-        Schema::dropIfExists('users');
         Schema::dropIfExists('failed_jobs');
         Schema::dropIfExists('job_batches');
         Schema::dropIfExists('jobs');

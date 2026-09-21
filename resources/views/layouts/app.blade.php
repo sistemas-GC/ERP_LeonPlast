@@ -151,7 +151,7 @@
                     </div>
                     @endif
 
-                    @if(Auth::user()->hasAnyAccess(['produccion.ordenes.index', 'mermas.index', 'produccion.ingresos', 'requerimientos_materiales.index']))
+                    @if(Auth::user()->hasAnyAccess(['produccion.ordenes.index', 'mermas.index', 'produccion.ingresos', 'requerimientos_materiales.index', 'produccion.transferencias.index']))
                     <div>
                         <button type="button" id="btnProduccion" class="w-full flex items-center justify-between p-3 text-sm font-semibold rounded-xl text-slate-400 hover:bg-slate-800/60 hover:text-white transition-all duration-150 focus:outline-none">
                             <div class="flex items-center">
@@ -166,7 +166,10 @@
                             <a href="{{ route('requerimientos_materiales.index') }}" class="block p-2 text-xs font-semibold {{ request()->routeIs('requerimientos_materiales*') ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40' }} rounded-r-lg transition-all"><i class="fas fa-clipboard-list w-4 mr-1"></i> Requerimientos</a>
                             @endif
                             @if(Auth::user()->hasAccess('produccion.ordenes.index'))
-                            <a href="{{ route('produccion.ordenes.index') }}" class="block p-2 text-xs font-semibold {{ request()->routeIs('produccion.*') ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40' }} rounded-r-lg transition-all"><i class="fas fa-tasks w-4 mr-1"></i> Órdenes de Producción</a>
+                            <a href="{{ route('produccion.ordenes.index') }}" class="block p-2 text-xs font-semibold {{ (request()->routeIs('produccion.ordenes*') || request()->routeIs('ordenes.procesos*')) ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40' }} rounded-r-lg transition-all"><i class="fas fa-tasks w-4 mr-1"></i> Órdenes de Producción</a>
+                            @endif
+                            @if(Auth::user()->hasAccess('produccion.transferencias.index'))
+                            <a href="{{ route('produccion.transferencias.index') }}" class="block p-2 text-xs font-semibold {{ request()->routeIs('produccion.transferencias*') ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40' }} rounded-r-lg transition-all"><i class="fas fa-dolly-flatbed w-4 mr-1 text-cyan-300"></i> Transferencias Producción</a>
                             @endif
                             @if(Auth::user()->hasAccess('admin.rutas_produccion.index'))
                             <a href="{{ route('admin.rutas_produccion.index') }}" class="block p-2 text-xs font-semibold {{ request()->routeIs('admin.rutas_produccion.*') ? 'bg-emerald-600/20 text-emerald-400 font-bold border-l-2 border-emerald-500' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40' }} rounded-r-lg transition-all"><i class="fas fa-route w-4 mr-1"></i> Rutas de Producción</a>
@@ -725,9 +728,45 @@
             });
         }
 
-        // Polling cada 30 segundos
+        // Polling de notificaciones adaptativo con Visibility API
+        let notifInterval = null;
+        let lastFetchTime = 0;
+
+        function startNotifPolling() {
+            if (!notifInterval) {
+                // Si pasaron más de 30s desde la última consulta, refrescar inmediatamente
+                if (Date.now() - lastFetchTime >= 30000) {
+                    fetchNotificaciones();
+                    lastFetchTime = Date.now();
+                }
+                notifInterval = setInterval(() => {
+                    if (!document.hidden) {
+                        fetchNotificaciones();
+                        lastFetchTime = Date.now();
+                    }
+                }, 30000);
+            }
+        }
+
+        function stopNotifPolling() {
+            if (notifInterval) {
+                clearInterval(notifInterval);
+                notifInterval = null;
+            }
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopNotifPolling();
+            } else {
+                startNotifPolling();
+            }
+        });
+
+        // Inicializar polling inicial
         fetchNotificaciones();
-        setInterval(fetchNotificaciones, 30000);
+        lastFetchTime = Date.now();
+        startNotifPolling();
 
         // ==========================================
         // Global Page Loader for Navigation

@@ -12,8 +12,8 @@ class ProductoProceso extends Model
     protected $table = 'producto_proceso';
     protected $primaryKey = 'codigo';
     public $incrementing = false;
-    protected $keyType = 'string';
-    public $timestamps = false; // Asumiendo que no usa created_at/updated_at por defecto
+    protected $keyType = 'int';
+    public $timestamps = false;
 
     protected $fillable = [
         'codigo',

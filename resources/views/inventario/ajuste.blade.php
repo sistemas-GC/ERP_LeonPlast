@@ -233,14 +233,14 @@
         function updateLoteField() {
             const tipo = $('#selectTipo').val();
             if (tipo === 'SALIDA') {
-                $('#inputLote').removeAttr('name').hide();
+                $('#inputLote').removeAttr('name').hide().prop('required', false);
                 $('#selectLote').attr('name', 'lote').show().prop('required', true);
                 $('#divCosto').hide();
                 $('#inputCosto').val('');
                 cargarLotes();
             } else {
                 $('#selectLote').removeAttr('name').hide().prop('required', false);
-                $('#inputLote').attr('name', 'lote').show();
+                $('#inputLote').attr('name', 'lote').show().prop('required', true);
                 $('#divCosto').show();
             }
         }
@@ -249,24 +249,47 @@
             const producto = $('#selectProducto').val();
             const almacen = $('select[name="codigo_almacen"]').val();
             
-            if (!producto || $('#selectTipo').val() !== 'SALIDA') return;
+            if ($('#selectTipo').val() !== 'SALIDA') return;
+
+            if (!producto) {
+                $('#selectLote').html('<option value="">-- Primero seleccione un producto --</option>');
+                return;
+            }
+            if (!almacen) {
+                $('#selectLote').html('<option value="">-- Seleccione un almacén para ver stock --</option>');
+                return;
+            }
             
-            $('#selectLote').html('<option value="">Cargando...</option>');
-            $.get('/lotes-ajax', { producto: producto, almacen: almacen }, function(data) {
+            $('#selectLote').html('<option value="">Cargando lotes disponibles...</option>');
+            $.get("{{ route('inventario.lotes_ajax') }}", { producto: producto, almacen: almacen }, function(data) {
                 $('#selectLote').empty();
-                if(data.length === 0) {
-                    $('#selectLote').append('<option value="">Sin lotes con stock</option>');
+                if(!data || data.length === 0) {
+                    $('#selectLote').append('<option value="">⚠️ Sin stock disponible en este almacén</option>');
                 } else {
-                    $('#selectLote').append('<option value="">-- Seleccione lote --</option>');
+                    $('#selectLote').append('<option value="">-- Seleccione lote disponible (' + data.length + ') --</option>');
                     data.forEach(function(lote) {
-                        $('#selectLote').append(`<option value="${lote.lote}">${lote.lote} (Stock: ${lote.stock_actual})</option>`);
+                        const nombreLote = (lote.lote && lote.lote.trim() !== '') ? lote.lote : 'SIN LOTE / N/A';
+                        const valorLote = lote.lote ? lote.lote : '';
+                        const cantDisp = parseFloat(lote.stock_actual).toFixed(2);
+                        $('#selectLote').append(`<option value="${valorLote}">${nombreLote} (Disponible: ${cantDisp} KG)</option>`);
                     });
                 }
+            }).fail(function() {
+                $('#selectLote').html('<option value="">Error al cargar lotes del almacén</option>');
             });
         }
 
-        $('#selectTipo, select[name="codigo_almacen"]').on('change', updateLoteField);
-        $('#selectProducto').on('change', cargarLotes);
+        $('#selectTipo').on('change', updateLoteField);
+        $('select[name="codigo_almacen"]').on('change', function() {
+            if ($('#selectTipo').val() === 'SALIDA') {
+                cargarLotes();
+            }
+        });
+        $('#selectProducto').on('change select2:select select2:clear', function() {
+            if ($('#selectTipo').val() === 'SALIDA') {
+                cargarLotes();
+            }
+        });
         
         updateLoteField();
     });

@@ -25,10 +25,10 @@
     </div>
 
     <!-- Cargador de Fórmulas -->
-    @if(($es_mezclado || $es_inyectado || $es_ensamblado || $es_ensamblado_manual || $es_molido || $es_troquelado || $es_horneado) && $estado_proceso_actual !== 'COMPLETADO')
+    @if(($es_mezclado || $es_inyectado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_molido || $es_troquelado || $es_horneado) && $estado_proceso_actual !== 'COMPLETADO')
     <div class="bg-white rounded-xl shadow-md border-t-4 border-orange-500 mb-6 overflow-hidden">
         <div class="bg-slate-50 border-b border-slate-200">
-            @if($es_inyectado || $es_troquelado || $es_horneado || $es_ensamblado || $es_ensamblado_manual)
+            @if($es_inyectado || $es_troquelado || $es_horneado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado)
             <ul class="flex flex-wrap text-sm font-medium text-center text-slate-500 border-b border-slate-200" id="op-tabs">
                 @if($es_inyectado || $es_troquelado || $es_horneado)
                 <li class="me-2">
@@ -36,6 +36,14 @@
                         Producción ({{ $es_troquelado ? 'Troquelado' : ($es_horneado ? 'Horneado' : 'Inyectado') }})
                     </a>
                 </li>
+                @if($es_troquelado)
+                <li class="me-2">
+                    <a href="#" onclick="switchOpTab('merma_empaque')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-merma_empaque">Merma Empaque</a>
+                </li>
+                <li class="me-2">
+                    <a href="#" onclick="switchOpTab('merma_clip')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-merma_clip">Merma Clip</a>
+                </li>
+                @endif
                 @endif
                 @if($es_ensamblado || $es_ensamblado_manual)
                 <li class="me-2">
@@ -51,12 +59,29 @@
                     <a href="#" onclick="switchOpTab('merma_cascara')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-merma_cascara">Cáscara para molido</a>
                 </li>
                 @endif
-                @if($es_inyectado)
+                @if($es_encartonado)
                 <li class="me-2">
-                    <a href="#" onclick="switchOpTab('recuperado_molido')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-recuperado_molido">Recuperado para Moler</a>
+                    <a href="#" onclick="switchOpTab('encartonado')" class="inline-block p-4 text-blue-600 bg-white border-t border-l border-r border-slate-200 rounded-t-lg active" id="tab-encartonado">Producción (Encartonado)</a>
                 </li>
                 <li class="me-2">
-                    <a href="#" onclick="switchOpTab('limpieza')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-limpieza">Limpieza/Purga</a>
+                    <a href="#" onclick="switchOpTab('merma_clip')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-merma_clip">Merma Clip</a>
+                </li>
+                <li class="me-2">
+                    <a href="#" onclick="switchOpTab('merma_cascara')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-merma_cascara">Cáscara para molido</a>
+                </li>
+                <li class="me-2">
+                    <a href="#" onclick="switchOpTab('merma_carton')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-merma_carton">Merma Cartón</a>
+                </li>
+                @endif
+                @if($es_inyectado)
+                <li class="me-2">
+                    <a href="#" onclick="switchOpTab('recuperado_molido')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-recuperado_molido">Colada / Cáscara</a>
+                </li>
+                <li class="me-2">
+                    <a href="#" onclick="switchOpTab('purga')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-purga">Purga</a>
+                </li>
+                <li class="me-2">
+                    <a href="#" onclick="switchOpTab('limpieza')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-limpieza">Limpieza</a>
                 </li>
                 <li class="me-2">
                     <a href="#" onclick="switchOpTab('recuperado_maquina')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-recuperado_maquina">Molido de Máquina</a>
@@ -70,30 +95,32 @@
                 </h2>
             </div>
             @endif
+
             @if($es_troquelado)
-            <div class="px-6 py-2 bg-yellow-50 text-yellow-800 font-semibold border-b border-yellow-200 text-sm flex justify-between items-center">
-                <div class="flex items-center space-x-4">
-                    <div>
-                        <i class="fas fa-weight mr-1"></i> Peso Bruto:
-                        <span class="bg-white px-2 py-0.5 rounded border border-yellow-200 ml-1">{{ number_format($peso_inicial ?? 0, 2) }}</span>
+            <div class="px-6 py-3 bg-slate-100 border-t border-slate-200 flex flex-wrap items-center justify-between gap-4 text-xs">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1.5">
+                        <span class="text-slate-500 font-medium"><i class="fas fa-weight-hanging text-slate-400 mr-1"></i>Peso Bruto:</span>
+                        <span class="font-bold text-slate-800">{{ number_format($peso_inicial ?? 0, 2) }} KG</span>
                     </div>
-                    <div>
-                        <i class="fas fa-box mr-1"></i> Tara:
-                        <span class="bg-white px-2 py-0.5 rounded border border-yellow-200 ml-1">{{ number_format($tara ?? 0, 2) }}</span>
+                    <div class="bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1.5">
+                        <span class="text-slate-500 font-medium"><i class="fas fa-box text-slate-400 mr-1"></i>Tara:</span>
+                        <span class="font-bold text-slate-800">{{ number_format($tara ?? 0, 2) }} KG</span>
                     </div>
-                    <div>
-                        <i class="fas fa-balance-scale mr-1"></i> Peso Neto:
-                        <span class="bg-yellow-200 px-3 py-1 rounded-full text-yellow-900 ml-1 shadow-sm">{{ number_format($peso_neto ?? 0, 2) }}</span>
+                    <div class="bg-white px-3 py-1.5 rounded-lg border border-blue-200 shadow-sm flex items-center gap-1.5">
+                        <span class="text-blue-700 font-semibold"><i class="fas fa-balance-scale text-blue-500 mr-1"></i>Peso Neto:</span>
+                        <span class="font-bold text-blue-700">{{ number_format($peso_neto ?? 0, 2) }} KG</span>
                     </div>
                 </div>
-                <div class="flex items-center space-x-6 text-sm">
-                    <div>
-                        <span class="text-slate-500 font-medium">Consumido:</span>
-                        <span class="font-bold ml-1 text-slate-700">{{ number_format($peso_consumido ?? 0, 2) }} KG</span>
+
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="bg-white px-3 py-1.5 rounded-lg border border-amber-200 shadow-sm flex items-center gap-1.5">
+                        <span class="text-amber-700 font-semibold"><i class="fas fa-arrow-circle-down text-amber-500 mr-1"></i>Consumido:</span>
+                        <span class="font-bold text-amber-700">{{ number_format($peso_consumido ?? 0, 2) }} KG</span>
                     </div>
-                    <div>
-                        <span class="text-slate-500 font-medium">Saldo:</span>
-                        <span class="font-bold ml-1 {{ ($peso_neto - $peso_consumido) < 0 ? 'text-red-600' : 'text-emerald-600' }}">
+                    <div class="bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1.5">
+                        <span class="text-slate-600 font-semibold"><i class="fas fa-chart-pie text-slate-400 mr-1"></i>Saldo Rollo:</span>
+                        <span class="font-bold {{ (($peso_neto ?? 0) - ($peso_consumido ?? 0)) < 0 ? 'text-red-600' : 'text-emerald-600' }}">
                             {{ number_format(($peso_neto ?? 0) - ($peso_consumido ?? 0), 2) }} KG
                         </span>
                     </div>
@@ -102,13 +129,13 @@
             @endif
         </div>
         <div class="p-6 bg-white">
-            <input type="hidden" id="tipo_operacion" value="{{ $es_inyectado || $es_troquelado || $es_horneado ? 'inyectado' : ($es_mezclado ? 'mezclado' : ($es_ensamblado || $es_ensamblado_manual ? 'ensamblado' : '')) }}">
+            <input type="hidden" id="tipo_operacion" value="{{ $es_inyectado || $es_troquelado || $es_horneado ? 'inyectado' : ($es_mezclado ? 'mezclado' : ($es_ensamblado || $es_ensamblado_manual ? 'ensamblado' : ($es_encartonado ? 'encartonado' : ''))) }}">
             
             <div class="flex flex-wrap items-end gap-4">
                 
-                @if($es_inyectado || $es_ensamblado || $es_ensamblado_manual || $es_molido || $es_troquelado || $es_horneado || $es_mezclado)
+                @if($es_inyectado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_molido || $es_troquelado || $es_horneado || $es_mezclado)
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1" id="lbl_centro">{{ $es_troquelado ? 'Troqueladora (Centro)' : ($es_horneado ? 'Horno (Centro)' : ($es_molido ? 'Molino (Centro)' : ($es_ensamblado || $es_ensamblado_manual ? 'Ensambladora (Centro)' : ($es_mezclado ? 'Mezcladora (Centro)' : 'Inyectora (Centro)')))) }}</label>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1" id="lbl_centro">{{ $es_troquelado ? 'Troqueladora (Centro)' : ($es_horneado ? 'Horno (Centro)' : ($es_molido ? 'Molino (Centro)' : ($es_ensamblado || $es_ensamblado_manual ? 'Ensambladora (Centro)' : ($es_encartonado ? 'Encartonadora (Centro)' : ($es_mezclado ? 'Mezcladora (Centro)' : 'Inyectora (Centro)'))))) }}</label>
                     <select id="centro_global" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3">
                         <option value="">-- Seleccione --</option>
                         @foreach($centros_trabajo as $ct)
@@ -133,7 +160,7 @@
                 @endif
                 
                 <div class="flex-1 min-w-50" id="wrapper_formula">
-                    <label class="block text-xs font-semibold text-slate-700 mb-1" id="lbl_formula">{{ $es_molido ? 'Producto a Moler' : ($es_ensamblado || $es_ensamblado_manual ? 'Producto a Ensamblar' : 'Fórmula/Color') }}</label>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1" id="lbl_formula">{{ $es_molido ? 'Producto a Moler' : ($es_ensamblado || $es_ensamblado_manual ? 'Producto a Ensamblar' : ($es_encartonado ? 'Fórmula Encartonado' : 'Fórmula/Color')) }}</label>
                     <select id="formula_selector" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3">
                         <option value="">-- Seleccione --</option>
                         @foreach($formulas_disponibles as $fm)
@@ -159,6 +186,18 @@
                         @foreach($inventario_merma_cascara as $ic)
                             <option value="{{ $ic->codigo_producto }}">{{ $ic->codigo_producto }} - {{ $ic->descripcion }}</option>
                         @endforeach
+                    </select>
+                </div>
+
+                <div class="flex-1 min-w-50 hidden" id="wrapper_inventario_carton">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Producto Cartón</label>
+                    <select id="carton_selector" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3">
+                        <option value="">-- Seleccione --</option>
+                        @if(isset($inventario_merma_carton))
+                            @foreach($inventario_merma_carton as $ic)
+                                <option value="{{ $ic->codigo_producto }}">{{ $ic->codigo_producto }} - {{ $ic->descripcion }}</option>
+                            @endforeach
+                        @endif
                     </select>
                 </div>
                 
@@ -237,19 +276,21 @@
                 </script>
                 @endif
 
-                <div>
+                <div class="relative w-80 md:w-96 min-w-[320px]" id="wrapper_trabajador_search">
                     <label class="block text-xs font-semibold text-slate-700 mb-1">Trabajador</label>
-                    <select id="trabajador_global" class="border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3">
-                        <option value="">-- Seleccione --</option>
-                        @foreach($trabajadores as $t)
-                            <option value="{{ $t->codigo }}">{{ $t->nombre }}</option>
-                        @endforeach
-                    </select>
+                    <div class="relative">
+                        <input type="text" id="trabajador_search_input" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3 pr-8 truncate" placeholder="Buscar trabajador..." autocomplete="off">
+                        <input type="hidden" id="trabajador_global" value="">
+                        <button type="button" id="btn_clear_trabajador" onclick="limpiarTrabajadorGlobal()" class="hidden absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs">
+                            <i class="fas fa-times"></i>
+                        </button>
+                        <div id="trabajador_options" class="hidden absolute left-0 right-0 bg-white border border-slate-200 max-h-48 overflow-y-auto z-50 shadow-xl rounded-md mt-1"></div>
+                    </div>
                 </div>
 
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 mb-1">Fecha</label>
-                    <input type="date" id="fecha_global" value="{{ $orden->fecha ?? date('Y-m-d') }}" max="{{ date('Y-m-d') }}"
+                    <input type="date" id="fecha_global" value="{{ $orden->fecha ?? date('Y-m-d') }}"
                         class="border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3">
                 </div>
 
@@ -268,11 +309,64 @@
                 <div class="flex-1"></div>
 
                 <button type="button" onclick="cargarEjecucionAgrupada()" class="px-5 py-2 {{ $es_inyectado || $es_troquelado || $es_horneado ? 'bg-orange-600 hover:bg-orange-700' : 'bg-primary hover:bg-primary-dark' }} text-white font-medium rounded-md shadow-sm transition" id="btn_cargar">
-                    <i class="fas fa-box-open mr-2"></i>Cargar {{ $es_troquelado ? 'Troquelado' : ($es_horneado ? 'Horneado' : ($es_mezclado ? 'Fórmula' : ($es_ensamblado || $es_ensamblado_manual ? 'Ensamblado' : ($es_molido ? 'Molido' : 'Inyectado')))) }}
+                    <i class="fas fa-box-open mr-2"></i>Cargar {{ $es_troquelado ? 'Troquelado' : ($es_horneado ? 'Horneado' : ($es_mezclado ? 'Fórmula' : ($es_ensamblado || $es_ensamblado_manual ? 'Ensamblado' : ($es_encartonado ? 'Encartonado' : ($es_molido ? 'Molido' : 'Inyectado'))))) }}
                 </button>
             </div>
 
-            <div class="flex flex-wrap items-end gap-4 mt-2">
+            @if($es_encartonado)
+            <div id="panel_colores_encartonado" class="mt-4 pt-4 border-t border-slate-200">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center">
+                            <i class="fas fa-palette text-indigo-500 mr-1.5"></i> Selección de 4 Colores (6 und / 25% c/u)
+                        </span>
+                        <span id="badge_contador_colores" class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-300">
+                            <span id="contador_colores">0</span> / 4 seleccionados
+                        </span>
+                    </div>
+                    <button type="button" onclick="limpiarColoresEncartonado()" class="text-xs text-slate-500 hover:text-red-600 font-medium transition self-start sm:self-auto">
+                        <i class="fas fa-undo-alt mr-1"></i> Limpiar selección
+                    </button>
+                </div>
+                <p class="text-xs text-slate-500 mb-3">Haga clic sobre los ganchos de color para seleccionarlos. El sistema consumirá automáticamente ganchos ensamblados (24 unidades totales) distribuidos equitativamente entre los 4 colores elegidos.</p>
+                
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+                    @foreach($colores as $col)
+                    @php
+                        $swatch = '#94a3b8';
+                        $cUpper = strtoupper($col->descripcion . ' ' . $col->codigo);
+                        if (str_contains($cUpper, 'AZUL')) $swatch = '#2563eb';
+                        elseif (str_contains($cUpper, 'CELESTE')) $swatch = '#0ea5e9';
+                        elseif (str_contains($cUpper, 'VERDE')) $swatch = '#16a34a';
+                        elseif (str_contains($cUpper, 'MAGENTA')) $swatch = '#d946ef';
+                        elseif (str_contains($cUpper, 'NARANJA')) $swatch = '#ea580c';
+                        elseif (str_contains($cUpper, 'ROSADO')) $swatch = '#ec4899';
+                        elseif (str_contains($cUpper, 'ROJO')) $swatch = '#dc2626';
+                        elseif (str_contains($cUpper, 'VIOLETA')) $swatch = '#7c3aed';
+                        elseif (str_contains($cUpper, 'BLANCO')) $swatch = '#f1f5f9';
+                        elseif (str_contains($cUpper, 'AMARILLO')) $swatch = '#eab308';
+                    @endphp
+                    <div id="card_color_{{ $col->codigo }}" 
+                         onclick="toggleColorEncartonado('{{ $col->codigo }}')" 
+                         class="color-chip-encartonado cursor-pointer rounded-lg border-2 border-slate-200 bg-white p-2.5 transition-all duration-200 hover:border-primary/50 hover:shadow-sm flex items-center justify-between select-none"
+                         data-color="{{ $col->codigo }}">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="w-4 h-4 rounded-full border border-slate-300 shrink-0 shadow-xs" style="background-color: {{ $swatch }};"></span>
+                            <div class="truncate">
+                                <div class="text-xs font-semibold text-slate-800 truncate" title="{{ $col->descripcion }}">{{ $col->descripcion }}</div>
+                                <div class="text-[10px] text-slate-400 font-mono">{{ $col->codigo }}</div>
+                            </div>
+                        </div>
+                        <div class="color-check-icon hidden text-primary ml-1 shrink-0">
+                            <i class="fas fa-check-circle text-sm"></i>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
+            <div class="flex flex-wrap items-end gap-4 mt-3 pt-3 border-t border-slate-100">
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 mb-1">Almacén de Consumo</label>
                     <select id="codigo_almacen_consumo" class="border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3 w-64">
@@ -284,6 +378,21 @@
                         @endforeach
                     </select>
                 </div>
+
+                @if($es_inyectado)
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Inyectada Inicial</label>
+                    <input type="number" id="inyectada_inicial_global" value="{{ $inyectada_inicial_sugerida ?? '' }}" class="w-32 border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3" placeholder="Ej. 1000" step="1">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Inyectada Final</label>
+                    <input type="number" id="inyectada_final_global" value="" class="w-32 border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3" placeholder="Ej. 1500" step="1">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Tiempo Ciclo (seg)</label>
+                    <input type="number" id="tiempo_ciclo_global" value="{{ $proceso->tiempo_ciclo ?? '' }}" class="w-32 border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3" placeholder="Ej. 15" step="1">
+                </div>
+                @endif
             </div>
         </div>
     </div>
@@ -302,7 +411,7 @@
 
     <!-- Detalle de Componentes -->
     <!-- Hidden input for stock check when the form block is hidden -->
-    @if(!($es_mezclado || $es_inyectado || $es_ensamblado || $es_ensamblado_manual || $es_molido) || $estado_proceso_actual === 'COMPLETADO')
+    @if(!($es_mezclado || $es_inyectado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_molido) || $estado_proceso_actual === 'COMPLETADO')
         <input type="hidden" id="codigo_almacen_consumo" value="{{ $proceso_produccion_almacen ?? '' }}">
     @endif
 
@@ -343,12 +452,13 @@
                             </tr>
                         </thead>
                         <tbody id="tbody_items" class="bg-white divide-y divide-slate-200">
-                            @if(($es_inyectado || $es_mezclado || $es_troquelado || $es_horneado || $es_ensamblado || $es_ensamblado_manual || $es_molido) && isset($cargas_agrupadas) && $cargas_agrupadas->count() > 0)
+                            @if(($es_inyectado || $es_mezclado || $es_troquelado || $es_horneado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_molido) && isset($cargas_agrupadas) && $cargas_agrupadas->count() > 0)
                                 @foreach($cargas_agrupadas as $key => $grupo)
                                     @php
                                         // Extraer datos comunes del primer componente del grupo
                                         $first = $grupo->first();
-                                        $esManual = str_contains($key, 'MANUAL');
+                                        $esActividad = ($first->codigo_tipo_producto === 'ACT' || $first->codigo_tipo_producto === 'MANUAL');
+                                        $esManual = str_contains($key, 'MANUAL') || $esActividad;
                                         
                                         // Obtener nombre del color basado en el producto asociado a la formula
                                         $nombreColorDisplay = null;
@@ -365,21 +475,26 @@
                                     @endphp
                                     <tr id="row_grupo_{{ $loop->index }}" class="bg-slate-50 border-l-4 border-l-primary main-row">
                                         <td class="px-3 py-3 whitespace-nowrap">
-                                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                                {{ $esManual ? 'MANUAL' : 'CARGA' }}
+                                             <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ $esActividad ? 'bg-teal-100 text-teal-800' : ($esManual ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800') }}">
+                                                {{ $esActividad ? 'ACTIVIDAD' : ($esManual ? 'MANUAL' : 'CARGA') }}
                                             </span>
                                         </td>
                                         <td class="px-3 py-3">
                                             <div class="col-span-12 md:col-span-3 lg:col-span-3 flex items-center justify-start h-full">
+                                                @php
+                                                    $mostrarProductoDirecto = $esActividad || in_array($first->tipo_operacion, ['merma_empaque', 'recuperado_clip', 'merma_cascara', 'merma_carton']);
+                                                @endphp
                                                 <div class="text-sm font-bold text-slate-800 break-words mb-1">
-                                                    @if(in_array($first->tipo_operacion, ['merma_clip', 'recuperado_clip', 'merma_cascara']))
+                                                    @if($mostrarProductoDirecto)
                                                         {{ $first->descripcion_producto }}
                                                     @else
-                                                        {{ $nombreColorDisplay ?? ($first->descripcion_formula_produccion ?? 'Registro Manual') }}
+                                                        {{ $nombreColorDisplay ?? ($first->descripcion_formula_produccion ?? ($first->descripcion_producto ?? 'Registro Manual')) }}
                                                     @endif
                                                 </div>
-                                                @if(!in_array($first->tipo_operacion, ['merma_clip', 'recuperado_clip', 'merma_cascara']))
-                                                    <div class="text-xs text-slate-500 break-words">{{ $first->codigo_formula_produccion ?? 'N/A' }}</div>
+                                                @if($mostrarProductoDirecto)
+                                                    <div class="text-xs text-slate-500 break-words">{{ $first->codigo_producto }}</div>
+                                                @else
+                                                    <div class="text-xs text-slate-500 break-words">{{ $first->codigo_formula_produccion ?? $first->codigo_producto ?? 'N/A' }}</div>
                                                 @endif
                                                 @if($first->codigo_color)
                                                     <span class="ml-2 px-2 py-0.5 rounded text-[10px] bg-slate-200 text-slate-700">{{ $first->codigo_color }}</span>
@@ -400,8 +515,11 @@
                                             $bgLabel = 'bg-blue-100 text-blue-800';
                                             $textLabel = 'PRODUCCIÓN';
                                             if($first->codigo_tipo_producto === 'ACT' || $first->codigo_tipo_producto === 'MANUAL') { $bgLabel = 'bg-teal-100 text-teal-800'; $textLabel = 'ACTIVIDAD'; }
-                                            elseif($first->tipo_operacion === 'limpieza') { $bgLabel = 'bg-red-100 text-red-800'; $textLabel = 'LIMPIEZA'; }
-                                            elseif($first->tipo_operacion === 'merma_clip') { $bgLabel = 'bg-orange-100 text-orange-800'; $textLabel = 'MERMA'; }
+                                            elseif($first->tipo_operacion === 'purga') { $bgLabel = 'bg-red-100 text-red-800'; $textLabel = 'PURGA'; }
+                                            elseif($first->tipo_operacion === 'limpieza') { $bgLabel = 'bg-amber-100 text-amber-800'; $textLabel = 'LIMPIEZA'; }
+                                            elseif($first->tipo_operacion === 'merma_empaque') { $bgLabel = 'bg-amber-100 text-amber-800'; $textLabel = 'MERMA EMPAQUE'; }
+                                            elseif($first->tipo_operacion === 'merma_clip') { $bgLabel = 'bg-orange-100 text-orange-800'; $textLabel = 'MERMA CLIP'; }
+                                            elseif($first->tipo_operacion === 'merma_carton') { $bgLabel = 'bg-amber-100 text-amber-800'; $textLabel = 'MERMA CARTÓN'; }
                                             elseif(str_contains($first->tipo_operacion ?? '', 'molido') || str_contains($first->tipo_operacion ?? '', 'maquina') || $first->tipo_operacion === 'recuperado_clip' || $first->tipo_operacion === 'merma_cascara') { $bgLabel = 'bg-purple-100 text-purple-800'; $textLabel = 'RECICLADO'; }
                                             elseif(str_contains($first->tipo_operacion ?? '', 'merma')) { $bgLabel = 'bg-orange-100 text-orange-800'; $textLabel = 'MERMA'; }
                                         @endphp
@@ -700,8 +818,62 @@
     const esTroquelado = {{ $es_troquelado ? 'true' : 'false' }};
     const esHorneado = {{ $es_horneado ? 'true' : 'false' }};
     const esEnsamblado = {{ $es_ensamblado ? 'true' : 'false' }};
+    const esEncartonado = {{ $es_encartonado ? 'true' : 'false' }};
     const esMolido = {{ (isset($es_molido) && $es_molido) ? 'true' : 'false' }};
     const pesoNeto = {{ $peso_neto ?? 0 }};
+    const pesoConsumido = {{ $peso_consumido ?? 0 }};
+
+    let selectedColorsEncartonado = [];
+
+    function toggleColorEncartonado(colorCode) {
+        const idx = selectedColorsEncartonado.indexOf(colorCode);
+        if (idx > -1) {
+            selectedColorsEncartonado.splice(idx, 1);
+        } else {
+            if (selectedColorsEncartonado.length >= 4) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Máximo 4 Colores',
+                    text: 'Solo puede seleccionar exactamente 4 colores para el encartonado.'
+                });
+                return;
+            }
+            selectedColorsEncartonado.push(colorCode);
+        }
+        actualizarVistaColoresEncartonado();
+    }
+
+    function limpiarColoresEncartonado() {
+        selectedColorsEncartonado = [];
+        actualizarVistaColoresEncartonado();
+    }
+
+    function actualizarVistaColoresEncartonado() {
+        document.querySelectorAll('.color-chip-encartonado').forEach(el => {
+            const code = el.getAttribute('data-color');
+            const icon = el.querySelector('.color-check-icon');
+            if (selectedColorsEncartonado.includes(code)) {
+                el.classList.remove('border-slate-200', 'bg-white');
+                el.classList.add('border-primary', 'bg-primary/5', 'shadow-xs');
+                if (icon) icon.classList.remove('hidden');
+            } else {
+                el.classList.add('border-slate-200', 'bg-white');
+                el.classList.remove('border-primary', 'bg-primary/5', 'shadow-xs');
+                if (icon) icon.classList.add('hidden');
+            }
+        });
+
+        const contador = document.getElementById('contador_colores');
+        const badge = document.getElementById('badge_contador_colores');
+        if (contador) contador.textContent = selectedColorsEncartonado.length;
+        if (badge) {
+            if (selectedColorsEncartonado.length === 4) {
+                badge.className = 'px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300';
+            } else {
+                badge.className = 'px-2.5 py-0.5 text-xs font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-300';
+            }
+        }
+    }
 
     function vincularFormula() {
         const sm = document.getElementById('molde_global');
@@ -715,13 +887,43 @@
         const almacenEl = document.getElementById('codigo_almacen_consumo');
         if (!almacenEl) return;
         const almacen = almacenEl.value;
-        if (!almacen) return;
 
-        const productos = [...document.querySelectorAll('#tbody_items .nueva-fila .c-prod')]
-            .map(el => el.value)
+        // Limpiar estado visual de las filas de tipo ACT (Actividad)
+        document.querySelectorAll('#tbody_items .nueva-fila').forEach(row => {
+            const tipo = row.querySelector('.c-tipo')?.value;
+            if (tipo === 'ACT') {
+                row.classList.remove('bg-red-50');
+                const cell = row.querySelector('.stock-cell');
+                if (cell) {
+                    cell.textContent = '-';
+                    cell.classList.remove('text-green-600', 'text-red-600');
+                }
+            }
+        });
+
+        // Filtrar únicamente los productos que NO sean actividades
+        const filasValidables = [...document.querySelectorAll('#tbody_items .nueva-fila')]
+            .filter(row => {
+                const tipo = row.querySelector('.c-tipo')?.value;
+                return tipo !== 'ACT';
+            });
+
+        const productos = filasValidables
+            .map(row => row.querySelector('.c-prod')?.value)
             .filter(Boolean);
 
-        if (productos.length === 0) return;
+        const warning = document.getElementById('stock-warning');
+        const text = document.getElementById('stock-warning-text');
+        const btn = document.getElementById('btnGuardar');
+
+        if (productos.length === 0 || !almacen) {
+            if (warning) warning.classList.add('hidden');
+            if (btn) {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+            return;
+        }
 
         const params = new URLSearchParams();
         params.set('codigo_almacen', almacen);
@@ -734,18 +936,25 @@
                 let faltantes = [];
                 const filas = document.querySelectorAll('#tbody_items .nueva-fila');
                 filas.forEach(row => {
-                    const prod = row.querySelector('.c-prod').value;
-                    const req = parseFloat(row.querySelector('.c-cant').value) || 0;
-                    const stock = data.data[prod] || 0;
+                    const tipo = row.querySelector('.c-tipo')?.value;
+                    if (tipo === 'ACT') {
+                        row.classList.remove('bg-red-50');
+                        return;
+                    }
+                    const prod = row.querySelector('.c-prod')?.value;
+                    const req = parseFloat(row.querySelector('.c-cant')?.value) || 0;
+                    const stock = (prod && data.data[prod] !== undefined) ? data.data[prod] : 0;
                     const cell = row.querySelector('.stock-cell');
 
-                    cell.textContent = stock.toFixed(2);
-                    cell.classList.remove('text-green-600', 'text-red-600');
+                    if (cell) {
+                        cell.textContent = stock.toFixed(2);
+                        cell.classList.remove('text-green-600', 'text-red-600');
+                    }
                     if (stock >= req) {
-                        cell.classList.add('text-green-600');
+                        if (cell) cell.classList.add('text-green-600');
                         row.classList.remove('bg-red-50');
                     } else {
-                        cell.classList.add('text-red-600');
+                        if (cell) cell.classList.add('text-red-600');
                         row.classList.add('bg-red-50');
                         const descInput = row.querySelector('.c-prod-search');
                         const prodName = (descInput && descInput.value) ? descInput.value : prod;
@@ -753,34 +962,168 @@
                     }
                 });
 
-                const warning = document.getElementById('stock-warning');
-                const text = document.getElementById('stock-warning-text');
-                const btn = document.getElementById('btnGuardar');
-
                 if (faltantes.length > 0) {
-                    warning.classList.remove('hidden');
+                    if (warning) warning.classList.remove('hidden');
                     const almacenEl = document.getElementById('codigo_almacen_consumo');
                     const almacenNombre = almacenEl.options[almacenEl.selectedIndex]?.text || almacen;
-                    text.textContent = 'Falta stock en "' + almacenNombre + '" para: ' + faltantes.join('; ') + '. Seleccione otro almacén o abastezca primero.';
-                    btn.disabled = true;
-                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+                    if (text) text.textContent = 'Falta stock en "' + almacenNombre + '" para: ' + faltantes.join('; ') + '. Seleccione otro almacén o abastezca primero.';
+                    if (btn) {
+                        btn.disabled = true;
+                        btn.classList.add('opacity-50', 'cursor-not-allowed');
+                    }
                 } else {
-                    warning.classList.add('hidden');
-                    btn.disabled = false;
-                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    if (warning) warning.classList.add('hidden');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
                 }
             })
             .catch(err => console.error('Error al verificar stock:', err));
     }
 
+    function guardarEstadoCabecera() {
+        try {
+            const centro = document.getElementById('centro_global') ? document.getElementById('centro_global').value : '';
+            const molde = document.getElementById('molde_global') ? document.getElementById('molde_global').value : '';
+            const trabajadorCod = document.getElementById('trabajador_global') ? document.getElementById('trabajador_global').value : '';
+            const trabajadorNom = document.getElementById('trabajador_search_input') ? document.getElementById('trabajador_search_input').value : '';
+            const fecha = document.getElementById('fecha_global') ? document.getElementById('fecha_global').value : '';
+            const horaIni = document.getElementById('hora_ini_global') ? document.getElementById('hora_ini_global').value : '';
+            const horaFin = document.getElementById('hora_fin_global') ? document.getElementById('hora_fin_global').value : '';
+            const almacen = document.getElementById('codigo_almacen_consumo') ? document.getElementById('codigo_almacen_consumo').value : '';
+            const tipoOp = document.getElementById('tipo_operacion') ? document.getElementById('tipo_operacion').value : '';
+            const inyIni = document.getElementById('inyectada_inicial_global') ? document.getElementById('inyectada_inicial_global').value : '';
+            const inyFinal = document.getElementById('inyectada_final_global') ? document.getElementById('inyectada_final_global').value : '';
+            const tiempoCiclo = document.getElementById('tiempo_ciclo_global') ? document.getElementById('tiempo_ciclo_global').value : '';
+
+            const estado = {
+                centro: centro,
+                molde: molde,
+                trabajador_codigo: trabajadorCod,
+                trabajador_nombre: trabajadorNom,
+                fecha: fecha,
+                hora_inicio: horaIni,
+                hora_fin: horaFin,
+                codigo_almacen_consumo: almacen,
+                tipo_operacion: tipoOp,
+                inyectada_siguiente_inicial: (inyFinal !== null && inyFinal !== '') ? inyFinal : inyIni,
+                tiempo_ciclo: tiempoCiclo
+            };
+
+            sessionStorage.setItem('ejecucion_cabecera_{{ $orden->idop }}_{{ $proceso->id }}', JSON.stringify(estado));
+        } catch (e) {
+            console.warn('Error al guardar estado de cabecera:', e);
+        }
+    }
+
+    function restaurarEstadoCabecera() {
+        try {
+            const key = 'ejecucion_cabecera_{{ $orden->idop }}_{{ $proceso->id }}';
+            const raw = sessionStorage.getItem(key);
+            if (!raw) return;
+
+            const estado = JSON.parse(raw);
+            if (!estado) return;
+
+            // 1. Centro de Trabajo (Inyectora, Mezcladora, etc.)
+            const elCentro = document.getElementById('centro_global');
+            if (elCentro && estado.centro) {
+                elCentro.value = estado.centro;
+            }
+
+            // 2. Molde a usar
+            const elMolde = document.getElementById('molde_global');
+            if (elMolde && estado.molde) {
+                elMolde.value = estado.molde;
+            }
+
+            // 3. Trabajador Predictivo
+            const elTrabNom = document.getElementById('trabajador_search_input');
+            const elTrabCod = document.getElementById('trabajador_global');
+            const btnClear = document.getElementById('btn_clear_trabajador');
+            if (elTrabNom && elTrabCod && estado.trabajador_codigo) {
+                elTrabCod.value = estado.trabajador_codigo;
+                elTrabNom.value = estado.trabajador_nombre || estado.trabajador_codigo;
+                if (btnClear) btnClear.classList.remove('hidden');
+            }
+
+            // 4. Fecha y Horas
+            const elFecha = document.getElementById('fecha_global');
+            if (elFecha && estado.fecha) {
+                elFecha.value = estado.fecha;
+            }
+            const elHoraIni = document.getElementById('hora_ini_global');
+            if (elHoraIni && estado.hora_inicio) {
+                elHoraIni.value = estado.hora_inicio;
+            }
+            const elHoraFin = document.getElementById('hora_fin_global');
+            if (elHoraFin && estado.hora_fin) {
+                elHoraFin.value = estado.hora_fin;
+            }
+
+            // 5. Almacén de Consumo
+            const elAlm = document.getElementById('codigo_almacen_consumo');
+            if (elAlm && estado.codigo_almacen_consumo) {
+                elAlm.value = estado.codigo_almacen_consumo;
+            }
+
+            // 6. Encadenamiento de Inyectadas: la inicial toma la última final
+            const elInyIni = document.getElementById('inyectada_inicial_global');
+            const elInyFin = document.getElementById('inyectada_final_global');
+            if (elInyIni && estado.inyectada_siguiente_inicial !== undefined && estado.inyectada_siguiente_inicial !== '') {
+                elInyIni.value = estado.inyectada_siguiente_inicial;
+            }
+            if (elInyFin) {
+                elInyFin.value = ''; // En blanco para la nueva lectura
+            }
+
+            // 7. Tiempo de Ciclo
+            const elCiclo = document.getElementById('tiempo_ciclo_global');
+            if (elCiclo && estado.tiempo_ciclo) {
+                elCiclo.value = estado.tiempo_ciclo;
+            }
+
+            // 8. Restaurar Pestaña / Tab Activa
+            if (estado.tipo_operacion && typeof switchOpTab === 'function') {
+                switchOpTab(estado.tipo_operacion);
+            }
+
+            // 9. Resetear explícitamente Fórmula y Cantidad
+            const elFormula = document.getElementById('formula_selector');
+            if (elFormula) elFormula.value = '';
+            const elClip = document.getElementById('inventario_selector_clip');
+            if (elClip) elClip.value = '';
+            const elCascara = document.getElementById('cascara_selector');
+            if (elCascara) elCascara.value = '';
+            const elCarton = document.getElementById('carton_selector');
+            if (elCarton) elCarton.value = '';
+            const elCant = document.getElementById('cantidad_global');
+            if (elCant) elCant.value = '';
+            const elRec = document.getElementById('cant_reciclado_global');
+            if (elRec) elRec.value = '';
+            if (typeof limpiarColoresEncartonado === 'function') {
+                limpiarColoresEncartonado();
+            }
+
+        } catch (e) {
+            console.warn('Error al restaurar cabecera:', e);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
+        setupTrabajadorPredictivo();
+        restaurarEstadoCabecera();
+
         const wrapFormula = document.getElementById('wrapper_formula');
         const wrapClip = document.getElementById('wrapper_inventario_clip');
         const wrapCascara = document.getElementById('wrapper_inventario_cascara');
+        const wrapCarton = document.getElementById('wrapper_inventario_carton');
         const panelClipRecuperado = document.getElementById('panel_clip_recuperado');
         
         if (wrapClip) wrapClip.classList.add('hidden');
         if (wrapCascara) wrapCascara.classList.add('hidden');
+        if (wrapCarton) wrapCarton.classList.add('hidden');
         
         const almacenSelect = document.getElementById('codigo_almacen_consumo');
         if (almacenSelect) {
@@ -1062,7 +1405,10 @@
             fecha: fechaGlobal,
             hora_ini: horaIni,
             hora_fin: horaFin,
-            codigo_trabajador: trabajador
+            codigo_trabajador: trabajador,
+            codigo_tipo_producto: 'ACT',
+            es_manual: true,
+            formula: ''
         }); 
     }
 
@@ -1106,7 +1452,7 @@
         const rowId = 'row_' + Date.now() + Math.floor(Math.random()*1000);
         const today = item.fecha || new Date().toISOString().split('T')[0];
         
-        let tiposHtml = tiposData.map(t=>`<option value="${t.codigo}" ${item.codigo_tipo_producto==t.codigo?'selected':''}>${t.codigo}</option>`).join('');
+        let tiposHtml = tiposData.map(t=>`<option value="${t.codigo}" ${(item.codigo_tipo_producto ? item.codigo_tipo_producto==t.codigo : (item.es_manual ? t.codigo=='ACT' : false))?'selected':''}>${t.codigo}</option>`).join('');
         let centrosHtml = '<option value="">--</option>' + centros.map(c=>`<option value="${c.codigo}" ${item.centro==c.codigo?'selected':''}>${c.codigo}</option>`).join('');
         let moldesHtml = esInyectado ? `<select class="text-xs py-1.5 px-2 border border-slate-300 rounded focus:ring-primary focus:border-primary w-full min-w-[100px] c-molde">${moldesData.map(m=>`<option value="${m.codigo}" ${item.molde==m.codigo?'selected':''}>${m.codigo}</option>`).join('')}</select>` : '';
         let unitsHtml = unidadesData.map(u=>`<option value="${u.codigo}" ${u.codigo=='KG'?'selected':''}>${u.codigo}</option>`).join('');
@@ -1114,9 +1460,11 @@
             `<option value="${t.codigo}" ${item.codigo_trabajador==t.codigo?'selected':''}>${t.nombre}</option>`
         ).join('');
 
+        const formulaVal = (item.es_manual || item.codigo_tipo_producto === 'ACT') ? '' : (item.formula || '');
+
         let html = `<tr id="${rowId}" class="nueva-fila bg-white hover:bg-slate-50 transition-colors">
             <td class="px-2 py-2 align-middle">
-                <select class="text-xs py-1.5 px-2 border border-slate-300 rounded focus:ring-primary focus:border-primary w-full min-w-[80px] c-tipo" onchange="recalcularFormulaDesdeREC();">${tiposHtml}</select>
+                <select class="text-xs py-1.5 px-2 border border-slate-300 rounded focus:ring-primary focus:border-primary w-full min-w-[80px] c-tipo" onchange="recalcularFormulaDesdeREC(); if(this.value==='ACT'){ const r=this.closest('tr'); if(r){ const f=r.querySelector('.c-formula'); if(f) f.value=''; } } verificarStock();">${tiposHtml}</select>
             </td>
             
             <td class="px-2 py-2 align-middle relative">
@@ -1145,14 +1493,14 @@
             </td>
 
             <td class="px-2 py-2 align-middle">
-                <input type="date" class="text-xs py-1.5 px-2 border border-slate-300 rounded focus:ring-primary focus:border-primary c-fecha_ini w-[110px]" value="${today}" max="${today}" oninput="syncFechaMaq(this)">
+                <input type="date" class="text-xs py-1.5 px-2 border border-slate-300 rounded focus:ring-primary focus:border-primary c-fecha_ini w-[110px]" value="${today}" oninput="syncFechaMaq(this)">
             </td>
             
             <td style="display:none;">
-                <input type="hidden" class="c-formula" value="${item.formula||document.getElementById('formula_selector')?.value||''}">
+                <input type="hidden" class="c-formula" value="${formulaVal}">
                 <input type="hidden" class="c-nominal" value="${item.cantidad_nominal||''}">
-                <input type="date" class="c-fecha_fin" value="${today}" max="${today}" oninput="syncFechaMaq(this)">
-                <input type="date" class="c-fecha_ini_maq" value="${today}" max="${today}"><input type="date" class="c-fecha_fin_maq" value="${today}" max="${today}">
+                <input type="date" class="c-fecha_fin" value="${today}" oninput="syncFechaMaq(this)">
+                <input type="date" class="c-fecha_ini_maq" value="${today}"><input type="date" class="c-fecha_fin_maq" value="${today}">
             </td>
             
             <td class="px-2 py-2 align-middle">
@@ -1218,7 +1566,9 @@
             const cant = parseFloat(r.querySelector('.c-cant').value) || 0;
             if (!prod) error = true;
             if (tipo !== 'ACT' && cant <= 0) error = true;
-            sumCantidad += cant;
+            if (tipo !== 'ACT') {
+                sumCantidad += cant;
+            }
             
             data.push({
                 codigo_tipo_producto: tipo,
@@ -1228,7 +1578,7 @@
                 cantidad: cant,
                 codigo_unidad_medida: r.querySelector('.c-um').value,
                 codigo_color: null,
-                codigo_formula: r.querySelector('.c-formula').value || null,
+                codigo_formula: (tipo === 'ACT') ? null : (r.querySelector('.c-formula').value || null),
                 codigo_trabajador: r.querySelector('.c-trab').value,
                 fecha_inicio: r.querySelector('.c-fecha_ini').value,
                 hora_inicio: r.querySelector('.c-hora_ini').value,
@@ -1244,8 +1594,15 @@
         
         if (error) return window.toast("Por favor complete los campos requeridos en todas las filas (cantidad es obligatoria excepto para Actividades).", 'warning');
 
-        if (esTroquelado && pesoNeto > 0 && sumCantidad > pesoNeto) {
-            return window.toast(`El consumo total (${sumCantidad} KG) no puede exceder el Peso Neto del Rollo (${pesoNeto} KG).`, 'error');
+        if (esTroquelado && pesoNeto > 0 && (pesoConsumido + sumCantidad) > (pesoNeto + 0.001)) {
+            const saldoActual = Math.max(0, pesoNeto - pesoConsumido);
+            Swal.fire({
+                icon: 'error',
+                title: 'Saldo de Rollo Insuficiente',
+                html: `El consumo total (${(pesoConsumido + sumCantidad).toFixed(2)} KG) excede el Peso Neto del Rollo (${pesoNeto.toFixed(2)} KG).<br><br>` +
+                      `<b>Saldo Disponible:</b> <span class="text-emerald-600 font-bold">${saldoActual.toFixed(2)} KG</span>`
+            });
+            return;
         }
         
         // Serializar productos resultantes
@@ -1255,9 +1612,9 @@
         let sumaConsumoKG = 0;
         let sumaResultanteKG = 0;
 
-        // Sumar consumos en KG
+        // Sumar consumos en KG solo de materiales (excluyendo actividades)
         data.forEach(item => {
-            if (item.codigo_unidad_medida === 'KG') {
+            if (item.codigo_tipo_producto !== 'ACT' && item.codigo_unidad_medida === 'KG') {
                 sumaConsumoKG += parseFloat(item.cantidad) || 0;
             }
         });
@@ -1323,7 +1680,7 @@
 
     function switchOpTab(tabName) {
         document.getElementById('tipo_operacion').value = tabName;
-        const tabs = ['inyectado', 'ensamblado', 'merma_pura', 'recuperado_molido', 'limpieza', 'recuperado_maquina', 'merma_clip', 'recuperado_clip', 'merma_cascara'];
+        const tabs = ['inyectado', 'ensamblado', 'encartonado', 'merma_pura', 'recuperado_molido', 'purga', 'limpieza', 'recuperado_maquina', 'merma_clip', 'recuperado_clip', 'merma_cascara', 'merma_carton', 'merma_empaque'];
         tabs.forEach(t => {
             const el = document.getElementById('tab-' + t);
             if (el) {
@@ -1338,12 +1695,16 @@
         const wrapFormula = document.getElementById('wrapper_formula');
         const wrapClip = document.getElementById('wrapper_inventario_clip');
         const wrapCascara = document.getElementById('wrapper_inventario_cascara');
+        const wrapCarton = document.getElementById('wrapper_inventario_carton');
         const panelClipRecuperado = document.getElementById('panel_clip_recuperado');
+        const panelColores = document.getElementById('panel_colores_encartonado');
         
         if (wrapFormula) wrapFormula.classList.add('hidden');
         if (wrapClip) wrapClip.classList.add('hidden');
         if (wrapCascara) wrapCascara.classList.add('hidden');
+        if (wrapCarton) wrapCarton.classList.add('hidden');
         if (panelClipRecuperado) panelClipRecuperado.classList.add('hidden');
+        if (panelColores) panelColores.classList.add('hidden');
 
         const btn = document.getElementById('btn_cargar');
         const lblFormula = document.getElementById('lbl_formula');
@@ -1357,10 +1718,28 @@
             if (panelClipRecuperado) panelClipRecuperado.classList.remove('hidden');
             btn.innerHTML = `<i class="fas fa-box-open mr-2"></i>Cargar ${typeof esEnsambladoManual !== 'undefined' && esEnsambladoManual ? 'Ensamblado Manual' : 'Ensamblado'}`;
             btn.className = 'px-5 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-md shadow-sm transition';
+        } else if (tabName === 'encartonado') {
+            if (wrapFormula) wrapFormula.classList.remove('hidden');
+            if (panelColores) panelColores.classList.remove('hidden');
+            btn.innerHTML = '<i class="fas fa-box-open mr-2"></i>Cargar Encartonado';
+            btn.className = 'px-5 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-md shadow-sm transition';
+            if (lblFormula) lblFormula.innerText = 'Fórmula Encartonado';
+        } else if (tabName === 'merma_empaque') {
+            if (wrapFormula) wrapFormula.classList.remove('hidden');
+            btn.innerHTML = '<i class="fas fa-box mr-2"></i>Registrar Merma Empaque';
+            btn.className = 'px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-md shadow-sm transition';
+            if (lblFormula) lblFormula.innerText = 'Fórmula / Producto';
         } else if (tabName === 'merma_clip') {
-            if (wrapClip) wrapClip.classList.remove('hidden');
-            btn.innerHTML = '<i class="fas fa-trash-alt mr-2"></i>Registrar Merma Clip';
-            btn.className = 'px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md shadow-sm transition';
+            if (esTroquelado) {
+                if (wrapFormula) wrapFormula.classList.remove('hidden');
+                btn.innerHTML = '<i class="fas fa-cut mr-2"></i>Registrar Merma Clip';
+                btn.className = 'px-5 py-2 bg-orange-600 hover:bg-orange-700 text-white font-medium rounded-md shadow-sm transition';
+                if (lblFormula) lblFormula.innerText = 'Fórmula / Producto';
+            } else {
+                if (wrapClip) wrapClip.classList.remove('hidden');
+                btn.innerHTML = '<i class="fas fa-trash-alt mr-2"></i>Registrar Merma Clip';
+                btn.className = 'px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md shadow-sm transition';
+            }
         } else if (tabName === 'recuperado_clip') {
             if (wrapClip) wrapClip.classList.remove('hidden');
             btn.innerHTML = '<i class="fas fa-recycle mr-2"></i>Registrar Clip Recuperado';
@@ -1369,23 +1748,94 @@
             if (wrapCascara) wrapCascara.classList.remove('hidden');
             btn.innerHTML = '<i class="fas fa-recycle mr-2"></i>Registrar Cáscara para molido';
             btn.className = 'px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-md shadow-sm transition';
-            lblFormula.innerText = 'Color de Cáscara Original';
+            if (lblFormula) lblFormula.innerText = 'Color de Cáscara Original';
+        } else if (tabName === 'merma_carton') {
+            if (wrapCarton) wrapCarton.classList.remove('hidden');
+            btn.innerHTML = '<i class="fas fa-layer-group mr-2"></i>Registrar Merma Cartón';
+            btn.className = 'px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-md shadow-sm transition';
         } else if (tabName === 'recuperado_molido') {
             if (wrapFormula) wrapFormula.classList.remove('hidden');
-            btn.innerHTML = '<i class="fas fa-recycle mr-2"></i>Registrar Molido';
+            btn.innerHTML = '<i class="fas fa-recycle mr-2"></i>Registrar Colada / Cáscara';
             btn.className = 'px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-md shadow-sm transition';
-            lblFormula.innerText = 'Fórmula Original';
+            if (lblFormula) lblFormula.innerText = 'Fórmula Original';
+        } else if (tabName === 'purga') {
+            if (wrapFormula) wrapFormula.classList.remove('hidden');
+            btn.innerHTML = '<i class="fas fa-trash-alt mr-2"></i>Registrar Purga';
+            btn.className = 'px-5 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-medium rounded-md shadow-sm transition';
+            if (lblFormula) lblFormula.innerText = 'Color Purgado';
         } else if (tabName === 'limpieza') {
             if (wrapFormula) wrapFormula.classList.remove('hidden');
-            btn.innerHTML = '<i class="fas fa-broom mr-2"></i>Registrar Purga';
-            btn.className = 'px-5 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-medium rounded-md shadow-sm transition';
-            lblFormula.innerText = 'Color Purgado';
+            btn.innerHTML = '<i class="fas fa-broom mr-2"></i>Registrar Limpieza';
+            btn.className = 'px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-md shadow-sm transition';
+            if (lblFormula) lblFormula.innerText = 'Color de Limpieza';
         } else if (tabName === 'recuperado_maquina') {
             if (wrapFormula) wrapFormula.classList.remove('hidden');
             btn.innerHTML = '<i class="fas fa-cogs mr-2"></i>Reg. Rec. Máquina';
             btn.className = 'px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-md shadow-sm transition';
-            lblFormula.innerText = 'Fórmula Original';
+            if (lblFormula) lblFormula.innerText = 'Fórmula Original';
         }
+    }
+
+    function setupTrabajadorPredictivo() {
+        const input = document.getElementById('trabajador_search_input');
+        const hidden = document.getElementById('trabajador_global');
+        const options = document.getElementById('trabajador_options');
+        const btnClear = document.getElementById('btn_clear_trabajador');
+        const trabajadoresList = @json($trabajadores);
+
+        if (!input || !options) return;
+
+        function renderOptions(filter = '') {
+            const query = filter.toLowerCase().trim();
+            const matches = trabajadoresList.filter(t => 
+                (t.nombre && t.nombre.toLowerCase().includes(query)) || 
+                (t.codigo && t.codigo.toLowerCase().includes(query))
+            );
+
+            options.innerHTML = '';
+            if (matches.length === 0) {
+                options.innerHTML = '<div class="p-2 text-xs text-slate-400">No se encontraron trabajadores</div>';
+            } else {
+                matches.forEach(t => {
+                    const div = document.createElement('div');
+                    div.className = 'p-2 cursor-pointer border-b border-slate-100 text-xs hover:bg-primary-50 text-slate-700 transition flex justify-between items-center';
+                    div.innerHTML = `<span class="font-medium">${t.nombre}</span><span class="text-[10px] text-slate-400 ml-2 font-mono">${t.codigo}</span>`;
+                    div.onclick = () => {
+                        input.value = t.nombre;
+                        hidden.value = t.codigo;
+                        options.classList.add('hidden');
+                        if (btnClear) btnClear.classList.remove('hidden');
+                    };
+                    options.appendChild(div);
+                });
+            }
+            options.classList.remove('hidden');
+        }
+
+        input.addEventListener('focus', () => renderOptions(input.value));
+        input.addEventListener('input', () => {
+            hidden.value = '';
+            if (btnClear) {
+                if (input.value) btnClear.classList.remove('hidden');
+                else btnClear.classList.add('hidden');
+            }
+            renderOptions(input.value);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!input.contains(e.target) && !options.contains(e.target)) {
+                options.classList.add('hidden');
+            }
+        });
+    }
+
+    function limpiarTrabajadorGlobal() {
+        const input = document.getElementById('trabajador_search_input');
+        const hidden = document.getElementById('trabajador_global');
+        const btnClear = document.getElementById('btn_clear_trabajador');
+        if (input) input.value = '';
+        if (hidden) hidden.value = '';
+        if (btnClear) btnClear.classList.add('hidden');
     }
 
     function cargarEjecucionAgrupada() {
@@ -1401,15 +1851,33 @@
 
         let formula = document.getElementById('formula_selector').value;
         
-        if (tipo_operacion === 'merma_clip') {
-            formula = document.getElementById('inventario_selector_clip').value;
+        if (tipo_operacion === 'encartonado') {
+            if (selectedColorsEncartonado.length !== 4) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Selección de Colores Incompleta',
+                    text: 'Debe seleccionar exactamente 4 colores para el proceso de encartonado (Actualmente seleccionados: ' + selectedColorsEncartonado.length + ').'
+                });
+                return;
+            }
+            formula = document.getElementById('formula_selector').value;
+        } else if (tipo_operacion === 'merma_clip') {
+            if (esTroquelado) {
+                formula = document.getElementById('formula_selector').value;
+            } else {
+                formula = document.getElementById('inventario_selector_clip').value;
+            }
             destino_merma_clip = 'desecho';
+        } else if (tipo_operacion === 'merma_empaque') {
+            formula = document.getElementById('formula_selector').value;
         } else if (tipo_operacion === 'recuperado_clip') {
             formula = document.getElementById('inventario_selector_clip').value;
             operacion_para_backend = 'recuperado_clip';
             destino_merma_clip = 'recuperado';
         } else if (tipo_operacion === 'merma_cascara') {
             formula = document.getElementById('cascara_selector').value;
+        } else if (tipo_operacion === 'merma_carton') {
+            formula = document.getElementById('carton_selector').value;
         }
 
         const cantidad = document.getElementById('cantidad_global').value;
@@ -1422,8 +1890,32 @@
         const almacen = document.getElementById('codigo_almacen_consumo') ? document.getElementById('codigo_almacen_consumo').value : '';
         const color = '';
 
-        if (!formula || !cantidad || !trabajador || !centro) {
-            Swal.fire('Atención', 'Seleccione fórmula, centro, trabajador y cantidad.', 'warning');
+        const inyectada_inicial = document.getElementById('inyectada_inicial_global') ? document.getElementById('inyectada_inicial_global').value : null;
+        const inyectada_final = document.getElementById('inyectada_final_global') ? document.getElementById('inyectada_final_global').value : null;
+        const tiempo_ciclo = document.getElementById('tiempo_ciclo_global') ? document.getElementById('tiempo_ciclo_global').value : null;
+
+        if (!formula || cantidad === '' || cantidad === null || !trabajador || !centro) {
+            Swal.fire('Atención', 'Seleccione fórmula, centro, trabajador e ingrese la cantidad.', 'warning');
+            return;
+        }
+
+        const cantIngresada = parseFloat(cantidad) || 0;
+        if (cantIngresada < 0) {
+            Swal.fire('Atención', 'La cantidad no puede ser un valor negativo.', 'warning');
+            return;
+        }
+
+        if (esTroquelado && pesoNeto > 0 && (pesoConsumido + cantIngresada) > (pesoNeto + 0.001)) {
+            const saldoActual = Math.max(0, pesoNeto - pesoConsumido);
+            Swal.fire({
+                icon: 'error',
+                title: 'Saldo de Rollo Insuficiente',
+                html: `El consumo ingresado (<b>${cantIngresada.toFixed(2)} KG</b>) excede el saldo disponible del rollo.<br><br>` +
+                      `<b>Peso Neto Total:</b> ${pesoNeto.toFixed(2)} KG<br>` +
+                      `<b>Consumido Actual:</b> ${pesoConsumido.toFixed(2)} KG<br>` +
+                      `<b>Saldo Disponible:</b> <span class="text-emerald-600 font-bold">${saldoActual.toFixed(2)} KG</span><br><br>` +
+                      `No se puede registrar un consumo que supere el peso neto del rollo.`
+            });
             return;
         }
 
@@ -1439,6 +1931,7 @@
             _token: '{{ csrf_token() }}',
             tipo_operacion: operacion_para_backend,
             codigo_formula: formula,
+            colores_seleccionados: selectedColorsEncartonado,
             cantidad_total: cantidad,
             codigo_molde: molde,
             codigo_centro_trabajo: centro,
@@ -1449,39 +1942,85 @@
             codigo_almacen_consumo: almacen,
             codigo_color: color,
             usar_reciclado: usar_reciclado,
-            cantidad_reciclado: cantidad_reciclado
+            cantidad_reciclado: cantidad_reciclado,
+            inyectada_inicial: inyectada_inicial,
+            inyectada_final: inyectada_final,
+            tiempo_ciclo: tiempo_ciclo
         };
 
-        Swal.fire({
-            title: 'Registrando...',
-            text: 'Validando stock y registrando transacción',
-            allowOutsideClick: false,
-            didOpen: () => Swal.showLoading()
-        });
+        function ejecutarEnvio() {
+            guardarEstadoCabecera();
 
-        fetch(`{{ route('ordenes.procesos.ejecucion_agrupada.store', [$orden->idop, $proceso->id]) }}`, {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(r => r.json())
-        .then(data => {
-            if(data.success) {
-                Swal.fire('Éxito', data.message, 'success').then(() => {
-                    location.reload();
-                });
-            } else {
-                Swal.fire('Error', data.message || 'Error al guardar.', 'error');
-            }
-        })
-        .catch(e => {
-            console.error(e);
-            Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error');
-        });
+            Swal.fire({
+                title: 'Registrando...',
+                text: 'Validando stock y registrando transacción',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            fetch(`{{ route('ordenes.procesos.ejecucion_agrupada.store', [$orden->idop, $proceso->id]) }}`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if(data.success) {
+                    guardarEstadoCabecera();
+                    Swal.fire('Éxito', data.message, 'success').then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire('Error', data.message || 'Error al guardar.', 'error');
+                }
+            })
+            .catch(e => {
+                console.error(e);
+                Swal.fire('Error', 'Ocurrió un error en el servidor.', 'error');
+            });
+        }
+
+        if (cantIngresada === 0) {
+            const nombreOp = tipo_operacion.toUpperCase().replace('_', ' ');
+            const inyInfo = (inyectada_inicial && inyectada_final) 
+                ? `<div class="mt-1.5">• <b>Inyectadas Máquina:</b> ${inyectada_inicial} a ${inyectada_final} (${Math.max(0, parseInt(inyectada_final) - parseInt(inyectada_inicial))} inyectadas)</div>` 
+                : '';
+            const horasInfo = (hora_ini && hora_fin) 
+                ? `<div class="mt-1.5">• <b>Horario:</b> ${hora_ini} - ${hora_fin}</div>` 
+                : '';
+
+            Swal.fire({
+                title: '¿Registrar con Cantidad 0 KG?',
+                html: `<div class="text-left text-sm text-slate-700 mb-2">` +
+                      `Ha ingresado <b>0.00 KG</b> de insumos para la operación de <b class="text-primary">${nombreOp}</b>.` +
+                      `</div>` +
+                      `<div class="text-left bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900">` +
+                      `<b><i class="fas fa-info-circle mr-1 text-amber-600"></i>¿Qué registrará el sistema?</b>` +
+                      `${horasInfo}` +
+                      `${inyInfo}` +
+                      `<div class="mt-1.5">• <b>Inventario / Kardex:</b> <u>No se descontará</u> material de ningún almacén.</div>` +
+                      `</div><br>` +
+                      `<span class="text-xs text-slate-500">¿Desea confirmar el registro o prefiere corregir la cantidad?</span>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#0d9488',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: '<i class="fas fa-check mr-1.5"></i> Sí, registrar con 0 KG',
+                cancelButtonText: '<i class="fas fa-undo-alt mr-1.5"></i> Cancelar / Modificar',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    ejecutarEnvio();
+                }
+            });
+            return;
+        }
+
+        ejecutarEnvio();
     }
 
     // --- Pagination Logic ---

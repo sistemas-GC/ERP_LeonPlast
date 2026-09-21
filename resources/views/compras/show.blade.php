@@ -38,8 +38,8 @@
                     </h2>
                 </div>
                 <div class="p-6">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-                        <div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
+                        <div class="col-span-2 sm:col-span-1">
                             <p class="text-xs font-bold text-slate-400 uppercase">Proveedor</p>
                             <p class="text-sm font-semibold text-slate-800">{{ $compra->proveedor }}</p>
                             <p class="text-xs text-slate-500">RUC: {{ $compra->ruc_proveedor }}</p>
@@ -49,16 +49,109 @@
                             <p class="text-sm font-semibold text-slate-800">{{ \Carbon\Carbon::parse($compra->fecha_compra)->format('d/m/Y') }}</p>
                         </div>
                         <div>
-                            <p class="text-xs font-bold text-slate-400 uppercase">Moneda</p>
-                            <p class="text-sm font-semibold text-slate-800">{{ $compra->moneda ?? 'PEN' }}</p>
+                            <p class="text-xs font-bold text-slate-400 uppercase">Condición</p>
+                            <div class="mt-0.5">
+                                @if(($compra->condicion_pago ?? 'CONTADO') === 'CREDITO')
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                                        <i class="fas fa-clock text-[10px]"></i> Crédito
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                                        <i class="fas fa-check-circle text-[10px] text-emerald-600"></i> Contado
+                                    </span>
+                                @endif
+                            </div>
                         </div>
                         <div>
-                            <p class="text-xs font-bold text-slate-400 uppercase">Condición</p>
-                            <p class="text-sm font-semibold text-slate-800">{{ $compra->condicion_pago ?? 'CONTADO' }}</p>
+                            <p class="text-xs font-bold text-slate-400 uppercase">Fecha Vencimiento</p>
+                            <p class="text-sm font-semibold text-slate-800">
+                                {{ $compra->fecha_vencimiento ? \Carbon\Carbon::parse($compra->fecha_vencimiento)->format('d/m/Y') : '-' }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-slate-400 uppercase">Moneda</p>
+                            <p class="text-sm font-semibold text-slate-800">{{ $compra->moneda ?? 'PEN' }}</p>
+                            @if(($compra->moneda ?? 'PEN') === 'USD' && $compra->tipo_cambio)
+                                <p class="text-xs text-slate-500">T/C: {{ number_format($compra->tipo_cambio, 3) }}</p>
+                            @endif
                         </div>
                     </div>
                 </div>
             </div>
+
+            @if(($compra->condicion_pago ?? '') === 'CREDITO' && $compra->cuotas && $compra->cuotas->count() > 0)
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="bg-slate-50/50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fas fa-calendar-alt text-amber-500"></i> Cuotas de la Factura
+                    </h2>
+                    <span class="text-xs font-bold px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg">
+                        {{ $compra->cuotas->count() }} {{ Str::plural('cuota', $compra->cuotas->count()) }}
+                    </span>
+                </div>
+                <div class="p-4">
+                    <div class="overflow-x-auto rounded-lg border border-slate-200">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-900 text-slate-200 uppercase text-[11px] font-bold">
+                                <tr>
+                                    <th class="py-2.5 px-4 w-16 text-center border-r border-slate-800">N°</th>
+                                    <th class="py-2.5 px-4 border-r border-slate-800">Fecha de Vencimiento</th>
+                                    <th class="py-2.5 px-4 text-center border-r border-slate-800">Días para Vencer</th>
+                                    <th class="py-2.5 px-4 text-right">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 font-medium">
+                                @foreach($compra->cuotas as $cuota)
+                                @php
+                                    $dias = $cuota->fecha_vencimiento ? \Carbon\Carbon::now()->startOfDay()->diffInDays(\Carbon\Carbon::parse($cuota->fecha_vencimiento)->startOfDay(), false) : null;
+                                @endphp
+                                <tr class="hover:bg-slate-50/50 transition-colors">
+                                    <td class="py-2.5 px-4 text-center">
+                                        <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-bold text-xs">
+                                            {{ $cuota->numero_cuota }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2.5 px-4 text-slate-800 font-semibold">
+                                        {{ $cuota->fecha_vencimiento ? \Carbon\Carbon::parse($cuota->fecha_vencimiento)->format('d/m/Y') : '-' }}
+                                    </td>
+                                    <td class="py-2.5 px-4 text-center">
+                                        @if($dias !== null)
+                                            @if($dias > 0)
+                                                <span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700">
+                                                    En {{ $dias }} {{ Str::plural('día', $dias) }}
+                                                </span>
+                                            @elseif($dias === 0)
+                                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-700">
+                                                    Vence hoy
+                                                </span>
+                                            @else
+                                                <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-red-50 text-red-700">
+                                                    Venció hace {{ abs($dias) }} {{ Str::plural('día', abs($dias)) }}
+                                                </span>
+                                            @endif
+                                        @else
+                                            <span class="text-slate-400">-</span>
+                                        @endif
+                                    </td>
+                                    <td class="py-2.5 px-4 text-right font-bold text-slate-900 text-sm">
+                                        {{ $compra->moneda === 'USD' ? '$' : 'S/' }} {{ number_format($cuota->monto, 2) }}
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot class="bg-slate-50 border-t border-slate-200 font-bold text-xs">
+                                <tr>
+                                    <td colspan="3" class="py-2.5 px-4 text-right text-slate-700 uppercase">Total Cuotas:</td>
+                                    <td class="py-2.5 px-4 text-right text-primary text-sm font-black">
+                                        {{ $compra->moneda === 'USD' ? '$' : 'S/' }} {{ number_format($compra->cuotas->sum('monto'), 2) }}
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            @endif
 
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="bg-slate-50/50 border-b border-slate-100 px-6 py-4">

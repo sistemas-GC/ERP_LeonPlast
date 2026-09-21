@@ -63,13 +63,24 @@ class CompraController extends Controller
     public function show($id)
     {
         // Cargamos la compra con sus relaciones para evitar consultas extra en la vista
-        $compra = Compra::with(['datosProveedor', 'detalles.producto', 'creador'])
+        $compra = Compra::with(['datosProveedor', 'detalles.producto', 'cuotas', 'creador'])
             ->findOrFail($id);
 
         return view('compras.show', compact('compra'));
     }
 
     public function store(Request $request) {
+        if ($request->filled('numero_documento') && ctype_digit(trim($request->numero_documento))) {
+            $request->merge([
+                'numero_documento' => str_pad(trim($request->numero_documento), 8, '0', STR_PAD_LEFT),
+            ]);
+        }
+        if ($request->filled('serie_documento')) {
+            $request->merge([
+                'serie_documento' => strtoupper(trim($request->serie_documento)),
+            ]);
+        }
+
         $request->validate([
             'tipo_documento' => 'required|string|max:50',
             'serie_documento' => 'required|string|max:20',
@@ -85,6 +96,11 @@ class CompraController extends Controller
                 })
             ],
             'fecha_compra' => 'required|date',
+            'condicion_pago' => 'nullable|in:CONTADO,CREDITO',
+            'fecha_vencimiento' => 'nullable|date',
+            'cuotas' => 'nullable|array',
+            'cuotas.*.fecha_vencimiento' => 'required_with:cuotas|date',
+            'cuotas.*.monto' => 'required_with:cuotas|numeric|min:0.01',
             'ruc_proveedor' => 'required|string|max:20|exists:proveedores,ruc',
             'productos' => 'required|array|min:1',
             'productos.*.codigo' => 'required|string|max:50|exists:producto,codigo',
@@ -103,6 +119,34 @@ class CompraController extends Controller
         try {
             DB::beginTransaction();
 
+            // Validación de cuotas al crédito
+            $condicionPago = $request->input('condicion_pago', 'CONTADO');
+            $fechaVencimiento = $request->fecha_vencimiento;
+
+            if ($condicionPago === 'CREDITO') {
+                if (empty($request->cuotas) || !is_array($request->cuotas) || count($request->cuotas) === 0) {
+                    throw new \Exception("Para compras al crédito debe registrar al menos una cuota con su fecha de vencimiento y monto.");
+                }
+
+                $sumaCuotas = 0;
+                foreach ($request->cuotas as $c) {
+                    $sumaCuotas += floatval($c['monto'] ?? 0);
+                }
+
+                $totalGeneral = floatval($request->total_general);
+                if (abs($sumaCuotas - $totalGeneral) > 0.05) {
+                    throw new \Exception("La suma de las cuotas (" . number_format($sumaCuotas, 2) . ") no coincide con el importe total de la factura (" . number_format($totalGeneral, 2) . "). Diferencia: " . number_format(abs($sumaCuotas - $totalGeneral), 2));
+                }
+
+                if (empty($fechaVencimiento)) {
+                    $fechas = array_column($request->cuotas, 'fecha_vencimiento');
+                    rsort($fechas);
+                    $fechaVencimiento = $fechas[0] ?? $request->fecha_compra;
+                }
+            } else {
+                $fechaVencimiento = $request->fecha_compra;
+            }
+
             // G1: Validación unique dentro de la transacción para evitar race condition
             $dup = Compra::where('ruc_proveedor', $request->ruc_proveedor)
                 ->where('serie_documento', strtoupper($request->serie_documento))
@@ -119,22 +163,42 @@ class CompraController extends Controller
 
             $estadoCompra = !empty($request->ids_guias) ? 'RECIBIDA' : 'PENDIENTE';
 
-            $compra = Compra::create([
+            $compraData = [
                 'tipo_documento'   => $request->tipo_documento,
                 'serie_documento'  => strtoupper($request->serie_documento),
                 'numero_documento' => $request->numero_documento,
                 'proveedor'        => $prov->razon_social,
                 'ruc_proveedor'    => $request->ruc_proveedor,
                 'fecha_compra'     => $request->fecha_compra,
+                'condicion_pago'   => $condicionPago,
+                'fecha_vencimiento'=> $fechaVencimiento,
                 'subtotal'         => $request->total_subtotal,
                 'igv'              => $request->total_impuestos,
                 'total'            => $request->total_general,
                 'moneda'           => $request->moneda,
                 'tipo_cambio'      => $request->moneda === 'USD' ? $request->tipo_cambio : 1.000,
                 'estado'           => $estadoCompra,
-                'igv_incluido'     => $request->has('igv_incluido') ? 1 : 0,
-                'usuario_creacion' => Auth::id()
-            ]);
+                'usuario_creacion' => Auth::id() ?? 1
+            ];
+            if (\Illuminate\Support\Facades\Schema::hasColumn('compras', 'igv_incluido')) {
+                $compraData['igv_incluido'] = $request->has('igv_incluido') ? 1 : 0;
+            }
+            if (\Illuminate\Support\Facades\Schema::hasColumn('compras', 'afecto_igv')) {
+                $compraData['afecto_igv'] = !$request->has('inafecto_igv');
+            }
+
+            $compra = Compra::create($compraData);
+
+            if ($condicionPago === 'CREDITO' && !empty($request->cuotas)) {
+                foreach ($request->cuotas as $idx => $cuota) {
+                    \App\Models\CompraCuota::create([
+                        'id_compra' => $compra->id_compra,
+                        'numero_cuota' => $cuota['numero_cuota'] ?? ($idx + 1),
+                        'fecha_vencimiento' => $cuota['fecha_vencimiento'],
+                        'monto' => floatval($cuota['monto']),
+                    ]);
+                }
+            }
 
             if (!empty($request->ids_guias)) {
                 \App\Models\GuiaRemisionCompra::whereIn('id_guia', $request->ids_guias)
@@ -151,6 +215,7 @@ class CompraController extends Controller
                     ]);
             }
 
+            $isAfecto = !$request->has('inafecto_igv');
             $igv_incluido = $request->has('igv_incluido');
 
             $codigosProductos = collect($request->productos)->pluck('codigo')->unique()->values()->toArray();
@@ -158,21 +223,42 @@ class CompraController extends Controller
 
             foreach ($request->productos as $item) {
                 $prod = $productosIndexados[$item['codigo']] ?? null;
+                $cant = floatval($item['cantidad']) > 0 ? floatval($item['cantidad']) : 1;
                 
-                $precio_unitario = $igv_incluido ? ($item['precio'] / 1.18) : $item['precio'];
-                $sub = $item['cantidad'] * $precio_unitario;
-                $igv_item = $sub * 0.18;
-                
+                // Si el usuario especificó o ajustó un subtotal de fila, respetarlo
+                if (isset($item['subtotal']) && is_numeric($item['subtotal']) && floatval($item['subtotal']) > 0) {
+                    $sub_row = floatval($item['subtotal']);
+                } else {
+                    $sub_row = $cant * floatval($item['precio']);
+                }
+
+                if ($isAfecto && $igv_incluido) {
+                    $sub = round($sub_row / 1.18, 2);
+                    $igv_item = round($sub_row - $sub, 2);
+                    $total_item = $sub_row;
+                    $precio_unitario = $sub / $cant;
+                } elseif ($isAfecto) {
+                    $sub = round($sub_row, 2);
+                    $igv_item = round($sub * 0.18, 2);
+                    $total_item = $sub + $igv_item;
+                    $precio_unitario = $sub / $cant;
+                } else { // Inafecto
+                    $sub = round($sub_row, 2);
+                    $igv_item = 0;
+                    $total_item = $sub;
+                    $precio_unitario = $sub / $cant;
+                }
+
                 DetalleCompra::create([
                     'id_compra' => $compra->id_compra,
                     'codigo_producto' => $item['codigo'],
                     'descripcion_producto' => $prod->descripcion ?? '',
-                    'cantidad' => $item['cantidad'],
+                    'cantidad' => $cant,
                     'precio_unitario' => $precio_unitario,
                     'codigo_unidad_medida' => $item['codigo_unidad_medida'] ?? null,
                     'subtotal' => $sub,
                     'igv' => $igv_item,
-                    'total' => $sub + $igv_item,
+                    'total' => $total_item,
                     'codigo_almacen' => $item['codigo_almacen'],
                     'lote' => $item['lote'] ?? null,
                     'fecha_vencimiento' => $item['fecha_vencimiento'] ?? null
@@ -185,7 +271,13 @@ class CompraController extends Controller
                 $recalcularPendientes = [];
                 foreach ($guiasToUpdate as $guia) {
                     foreach ($request->productos as $item) {
-                        $precio_unitario = $igv_incluido ? ($item['precio'] / 1.18) : $item['precio'];
+                        $cant = floatval($item['cantidad']) > 0 ? floatval($item['cantidad']) : 1;
+                        if (isset($item['subtotal']) && is_numeric($item['subtotal']) && floatval($item['subtotal']) > 0) {
+                            $sub_row = floatval($item['subtotal']);
+                        } else {
+                            $sub_row = $cant * floatval($item['precio']);
+                        }
+                        $precio_unitario = ($isAfecto && $igv_incluido) ? ($sub_row / 1.18 / $cant) : ($sub_row / $cant);
                         $tc = $request->moneda === 'USD' ? $request->tipo_cambio : 1.000;
                         $costo_kardex_pen = $precio_unitario * $tc;
 
@@ -222,7 +314,7 @@ class CompraController extends Controller
     }
 
     public function edit($id) {
-        $compra = Compra::with('detalles')->findOrFail($id);
+        $compra = Compra::with(['detalles', 'cuotas'])->findOrFail($id);
         $proveedores = Proveedor::where('activo', 1)->get();
         $almacenes = Almacen::where('activo', 1)->get();
         $unidades_medida = UnidadMedida::where('estado', 1)->get();
@@ -231,6 +323,17 @@ class CompraController extends Controller
     }
 
     public function update(Request $request, $id) {
+        if ($request->filled('numero_documento') && ctype_digit(trim($request->numero_documento))) {
+            $request->merge([
+                'numero_documento' => str_pad(trim($request->numero_documento), 8, '0', STR_PAD_LEFT),
+            ]);
+        }
+        if ($request->filled('serie_documento')) {
+            $request->merge([
+                'serie_documento' => strtoupper(trim($request->serie_documento)),
+            ]);
+        }
+
         $request->validate([
             'tipo_documento' => 'required|string|max:50',
             'serie_documento' => 'required|string|max:20',
@@ -246,6 +349,11 @@ class CompraController extends Controller
                 })->ignore($id, 'id_compra')
             ],
             'fecha_compra' => 'required|date',
+            'condicion_pago' => 'nullable|in:CONTADO,CREDITO',
+            'fecha_vencimiento' => 'nullable|date',
+            'cuotas' => 'nullable|array',
+            'cuotas.*.fecha_vencimiento' => 'required_with:cuotas|date',
+            'cuotas.*.monto' => 'required_with:cuotas|numeric|min:0.01',
             'ruc_proveedor' => 'required|string|max:20|exists:proveedores,ruc',
             'productos' => 'required|array|min:1',
             'productos.*.codigo' => 'required|string|max:50',
@@ -267,13 +375,43 @@ class CompraController extends Controller
                 return back()->with('error', 'Solo se pueden editar compras en estado PENDIENTE.');
             }
 
+            // Validación de cuotas al crédito
+            $condicionPago = $request->input('condicion_pago', 'CONTADO');
+            $fechaVencimiento = $request->fecha_vencimiento;
+
+            if ($condicionPago === 'CREDITO') {
+                if (empty($request->cuotas) || !is_array($request->cuotas) || count($request->cuotas) === 0) {
+                    throw new \Exception("Para compras al crédito debe registrar al menos una cuota con su fecha de vencimiento y monto.");
+                }
+
+                $sumaCuotas = 0;
+                foreach ($request->cuotas as $c) {
+                    $sumaCuotas += floatval($c['monto'] ?? 0);
+                }
+
+                $totalGeneral = floatval($request->total_general);
+                if (abs($sumaCuotas - $totalGeneral) > 0.05) {
+                    throw new \Exception("La suma de las cuotas (" . number_format($sumaCuotas, 2) . ") no coincide con el importe total de la factura (" . number_format($totalGeneral, 2) . "). Diferencia: " . number_format(abs($sumaCuotas - $totalGeneral), 2));
+                }
+
+                if (empty($fechaVencimiento)) {
+                    $fechas = array_column($request->cuotas, 'fecha_vencimiento');
+                    rsort($fechas);
+                    $fechaVencimiento = $fechas[0] ?? $request->fecha_compra;
+                }
+            } else {
+                $fechaVencimiento = $request->fecha_compra;
+            }
+
             $prov = Proveedor::where('ruc', $request->ruc_proveedor)->firstOrFail();
 
-            $compra->update([
+            $updateData = [
                 'tipo_documento' => $request->tipo_documento,
                 'serie_documento' => strtoupper($request->serie_documento),
                 'numero_documento' => $request->numero_documento,
                 'fecha_compra' => $request->fecha_compra,
+                'condicion_pago' => $condicionPago,
+                'fecha_vencimiento' => $fechaVencimiento,
                 'proveedor' => $prov->razon_social,
                 'ruc_proveedor' => $request->ruc_proveedor,
                 'subtotal' => $request->total_subtotal,
@@ -281,29 +419,73 @@ class CompraController extends Controller
                 'total' => $request->total_general,
                 'moneda' => $request->moneda,
                 'tipo_cambio' => $request->moneda === 'USD' ? $request->tipo_cambio : 1.000,
-                'igv_incluido' => $request->has('igv_incluido') ? 1 : 0,
-                'usuario_aprobacion' => Auth::id(),
-            ]);
+                'usuario_aprobacion' => Auth::id() ?? 1,
+            ];
+            if (\Illuminate\Support\Facades\Schema::hasColumn('compras', 'igv_incluido')) {
+                $updateData['igv_incluido'] = $request->has('igv_incluido') ? 1 : 0;
+            }
+            if (\Illuminate\Support\Facades\Schema::hasColumn('compras', 'afecto_igv')) {
+                $updateData['afecto_igv'] = !$request->has('inafecto_igv');
+            }
+
+            $compra->update($updateData);
+
+            // Sincronizar cuotas
+            \App\Models\CompraCuota::where('id_compra', $id)->delete();
+            if ($condicionPago === 'CREDITO' && !empty($request->cuotas)) {
+                foreach ($request->cuotas as $idx => $cuota) {
+                    \App\Models\CompraCuota::create([
+                        'id_compra' => $id,
+                        'numero_cuota' => $cuota['numero_cuota'] ?? ($idx + 1),
+                        'fecha_vencimiento' => $cuota['fecha_vencimiento'],
+                        'monto' => floatval($cuota['monto']),
+                    ]);
+                }
+            }
 
             DetalleCompra::where('id_compra', $id)->delete();
+            $isAfecto = !$request->has('inafecto_igv');
             $igv_incluido = $request->has('igv_incluido');
             $codigosProductos = collect($request->productos)->pluck('codigo')->unique()->values()->toArray();
             $productosIndexados = Producto::whereIn('codigo', $codigosProductos)->get()->keyBy('codigo');
             foreach ($request->productos as $item) {
                 $prod = $productosIndexados[$item['codigo']] ?? null;
-                $precio_unitario = $igv_incluido ? ($item['precio'] / 1.18) : $item['precio'];
-                $sub = $item['cantidad'] * $precio_unitario;
-                $igv_item = $sub * 0.18;
+                $cant = floatval($item['cantidad']) > 0 ? floatval($item['cantidad']) : 1;
+                
+                // Si el usuario especificó o ajustó un subtotal de fila, respetarlo
+                if (isset($item['subtotal']) && is_numeric($item['subtotal']) && floatval($item['subtotal']) > 0) {
+                    $sub_row = floatval($item['subtotal']);
+                } else {
+                    $sub_row = $cant * floatval($item['precio']);
+                }
+
+                if ($isAfecto && $igv_incluido) {
+                    $sub = round($sub_row / 1.18, 2);
+                    $igv_item = round($sub_row - $sub, 2);
+                    $total_item = $sub_row;
+                    $precio_unitario = $sub / $cant;
+                } elseif ($isAfecto) {
+                    $sub = round($sub_row, 2);
+                    $igv_item = round($sub * 0.18, 2);
+                    $total_item = $sub + $igv_item;
+                    $precio_unitario = $sub / $cant;
+                } else { // Inafecto
+                    $sub = round($sub_row, 2);
+                    $igv_item = 0;
+                    $total_item = $sub;
+                    $precio_unitario = $sub / $cant;
+                }
+
                 DetalleCompra::create([
                     'id_compra' => $id,
                     'codigo_producto' => $item['codigo'],
                     'descripcion_producto' => $prod->descripcion ?? '',
-                    'cantidad' => $item['cantidad'],
+                    'cantidad' => $cant,
                     'precio_unitario' => $precio_unitario,
                     'codigo_unidad_medida' => $item['codigo_unidad_medida'] ?? null,
                     'subtotal' => $sub,
                     'igv' => $igv_item,
-                    'total' => $sub + $igv_item,
+                    'total' => $total_item,
                     'codigo_almacen' => $item['codigo_almacen'],
                     'lote' => $item['lote'] ?? null,
                     'fecha_vencimiento' => $item['fecha_vencimiento'] ?? null
@@ -315,7 +497,13 @@ class CompraController extends Controller
                 $recalcularPendientes = [];
                 foreach ($compra->guias as $guia) {
                     foreach ($request->productos as $item) {
-                        $precio_unitario = $igv_incluido ? ($item['precio'] / 1.18) : $item['precio'];
+                        $cant = floatval($item['cantidad']) > 0 ? floatval($item['cantidad']) : 1;
+                        if (isset($item['subtotal']) && is_numeric($item['subtotal']) && floatval($item['subtotal']) > 0) {
+                            $sub_row = floatval($item['subtotal']);
+                        } else {
+                            $sub_row = $cant * floatval($item['precio']);
+                        }
+                        $precio_unitario = ($isAfecto && $igv_incluido) ? ($sub_row / 1.18 / $cant) : ($sub_row / $cant);
                         $tc = $request->moneda === 'USD' ? $request->tipo_cambio : 1.000;
                         $costo_kardex_pen = $precio_unitario * $tc;
 

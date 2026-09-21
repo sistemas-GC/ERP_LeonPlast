@@ -25,17 +25,6 @@ use Illuminate\Support\Facades\DB;
 |--------------------------------------------------------------------------
 */
 
-// RUTA TEMPORAL PARA ACTUALIZAR LA CONTRASEÑA
-Route::get('/fix-password', function () {
-    $usuario = Usuario::where('nombre_usuario', 'admin')->first();
-    if ($usuario) {
-        $usuario->contrasena_hash = Hash::make('admin123');
-        $usuario->save();
-        return '¡Contraseña actualizada con éxito!';
-    }
-    return 'No se encontró al usuario admin.';
-});
-
 // Rutas para usuarios NO autenticados
 Route::middleware('guest')->group(function () {
     Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
@@ -231,7 +220,7 @@ Route::middleware('auth')->group(function () {
     // =========================================================
     // MÓDULO DE PRODUCCIÓN
     // =========================================================
-    Route::prefix('produccion')->group(function () {
+    Route::middleware('role:Administrador,Supervisor,Produccion,Especialista')->prefix('produccion')->group(function () {
         // Ingresos de Producción (PEP)
         Route::get('ingresos', [\App\Http\Controllers\InventarioController::class, 'recepcionesProduccion'])->name('produccion.ingresos');
 
@@ -268,6 +257,14 @@ Route::middleware('auth')->group(function () {
         Route::get('mermas/{id}/detalle', [\App\Http\Controllers\MermaController::class, 'detalle'])->name('mermas.detalle');
         Route::get('mermas/reporte-pdf/{idop}', [\App\Http\Controllers\MermaController::class, 'reportePdf'])->name('mermas.reporte_pdf');
         Route::post('mermas/{id}/anular', [\App\Http\Controllers\MermaController::class, 'anular'])->name('mermas.anular');
+
+        // Transferencias de Producción (Consumo Totalizado y FIFO por Lotes)
+        Route::get('transferencias', [\App\Http\Controllers\ProduccionTransferenciaController::class, 'index'])->name('produccion.transferencias.index');
+        Route::get('transferencias/create', [\App\Http\Controllers\ProduccionTransferenciaController::class, 'create'])->name('produccion.transferencias.create');
+        Route::post('transferencias', [\App\Http\Controllers\ProduccionTransferenciaController::class, 'store'])->name('produccion.transferencias.store');
+        Route::get('transferencias/{id}', [\App\Http\Controllers\ProduccionTransferenciaController::class, 'show'])->name('produccion.transferencias.show');
+        Route::post('transferencias/{id}/anular', [\App\Http\Controllers\ProduccionTransferenciaController::class, 'anular'])->name('produccion.transferencias.anular');
+        Route::get('transferencias-api/productos', [\App\Http\Controllers\ProduccionTransferenciaController::class, 'buscarProductos'])->name('produccion.transferencias.buscar_productos');
     });
 
     // =========================================================
@@ -356,9 +353,9 @@ Route::middleware('auth')->group(function () {
     })->name('almacen.dashboard')->middleware('role:ALMACEN');
 
     // =========================================================
-    // MÓDULO DE REPORTES
+    // MÓDULO DE TERCEROS Y REPORTES
     // =========================================================
-    Route::prefix('terceros')->name('terceros.')->group(function () {
+    Route::middleware('role:Administrador,Supervisor')->prefix('terceros')->name('terceros.')->group(function () {
         Route::get('/salidas', [\App\Http\Controllers\GuiaTercerosSalidaController::class, 'index'])->name('salidas.index');
         Route::get('/salidas/create', [\App\Http\Controllers\GuiaTercerosSalidaController::class, 'create'])->name('salidas.create');
         Route::get('/salidas/productos-con-stock', [\App\Http\Controllers\GuiaTercerosSalidaController::class, 'getProductosConStock'])->name('salidas.productos_con_stock');
@@ -368,7 +365,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/liquidacion/{id}/cerrar', [\App\Http\Controllers\TercerosLiquidacionController::class, 'cerrarConMerma'])->name('liquidacion.cerrar');
     });
 
-    Route::prefix('reportes')->name('reportes.')->group(function () {
+    Route::middleware('role:Administrador,Supervisor,Especialista,Almacen,Contabilidad')->prefix('reportes')->name('reportes.')->group(function () {
         Route::get('/', [ReporteController::class, 'index'])->name('index');
         Route::get('/produccion', [ReporteController::class, 'produccion'])->name('produccion');
         Route::get('/inventario', [ReporteController::class, 'inventario'])->name('inventario');

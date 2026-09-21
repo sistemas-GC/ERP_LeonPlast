@@ -11,9 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::dropIfExists('notificaciones');
         Schema::create('notificaciones', function (Blueprint $table) {
             $table->id();
-            $table->integer('id_usuario')->nullable()->index();
+            $table->unsignedBigInteger('id_usuario')->nullable()->index();
             $table->string('titulo');
             $table->text('mensaje');
             $table->enum('tipo', ['info', 'warning', 'success', 'danger'])->default('info');

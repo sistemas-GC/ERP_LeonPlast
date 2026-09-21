@@ -173,6 +173,30 @@ class ProductoController extends Controller
         $search = $request->input('q', '');
         $tipo = $request->input('tipo', '');
 
+        if ($tipo === 'ACT') {
+            $actividades = \App\Models\ActividadProduccion::activos()
+                ->where(function ($q) use ($search) {
+                    $q->where('codigo', 'LIKE', "%{$search}%")
+                      ->orWhere('descripcion', 'LIKE', "%{$search}%");
+                })
+                ->orderBy('descripcion', 'asc')
+                ->limit(30)
+                ->get();
+
+            if ($actividades->isNotEmpty()) {
+                return response()->json(
+                    $actividades->map(fn($a) => [
+                        'id'                     => $a->codigo,
+                        'text'                   => "[{$a->codigo}] {$a->descripcion}",
+                        'codigo_tipo_producto'   => 'ACT',
+                        'descripcion_tipo_producto' => 'ACTIVIDADES PRODUCCION',
+                        'codigo_unidad_medida'   => 'UNI',
+                        'unidad_medida'          => 'UNI',
+                    ])
+                );
+            }
+        }
+
         $query = Producto::with(['tipo', 'unidad'])
             ->where('estado', 1)
             ->where(function ($q) use ($search) {

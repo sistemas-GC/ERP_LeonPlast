@@ -70,8 +70,19 @@
                                 <div class="font-bold text-slate-900 uppercase">
                                     {{ $compra->tipo_documento }} {{ $compra->serie_documento }}-{{ $compra->numero_documento }}
                                 </div>
-                                <div class="text-xs text-slate-500">
-                                    {{ \Carbon\Carbon::parse($compra->fecha_compra)->format('d/m/Y') }}
+                                <div class="flex items-center gap-2 mt-0.5">
+                                    <span class="text-xs text-slate-500">
+                                        {{ \Carbon\Carbon::parse($compra->fecha_compra)->format('d/m/Y') }}
+                                    </span>
+                                    @if(($compra->condicion_pago ?? 'CONTADO') === 'CREDITO')
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800" title="Vencimiento: {{ $compra->fecha_vencimiento ? \Carbon\Carbon::parse($compra->fecha_vencimiento)->format('d/m/Y') : '-' }}">
+                                            CRÉDITO
+                                        </span>
+                                    @else
+                                        <span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600">
+                                            CONTADO
+                                        </span>
+                                    @endif
                                 </div>
                             </td>
                             <td class="px-4 md:px-6 py-3 md:py-4">

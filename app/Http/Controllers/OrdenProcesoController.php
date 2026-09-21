@@ -138,7 +138,7 @@ class OrdenProcesoController extends Controller
             }
             
             $numero_ref_prefijo = "OP-{$orden_id}-PROC-{$id}";
-            $usuario_id = Auth::user()->id_usuario ?? 1; // Ajustar según el sistema de auth
+            $usuario_id = Auth::id();
             
             // 2. EXTORNO DE PRODUCTOS EN PROCESO (PEP)
             $todos_ingresos = DB::table('produccion_ingresos_proceso')
@@ -338,6 +338,7 @@ class OrdenProcesoController extends Controller
         $es_inyectado = ($proceso->codigo_proceso == '15') || str_contains($desc_proceso_upper, 'INYECTADO');
         $es_ensamblado_manual = str_contains($desc_proceso_upper, 'ENSAMBLADO MANUAL');
         $es_ensamblado = ($proceso->codigo_proceso == '10') || (str_contains($desc_proceso_upper, 'ENSAMBLADO') && !$es_ensamblado_manual);
+        $es_encartonado = ($proceso->codigo_proceso == '8') || str_contains($desc_proceso_upper, 'ENCARTONADO');
         $es_molido = ($proceso->codigo_proceso == '18') || str_contains($desc_proceso_upper, 'MOLIDO');
         $es_troquelado = ($proceso->codigo_proceso == '17') || str_contains($desc_proceso_upper, 'TROQUELADO');
         $es_horneado = ($proceso->codigo_proceso == '13') || str_contains($desc_proceso_upper, 'HORNEADO');
@@ -364,7 +365,13 @@ class OrdenProcesoController extends Controller
                 } elseif (str_contains($proceso_nombre, 'TROQUELADO')) {
                     $query->orWhere('codigo', 'LIKE', 'C2%');
                 } elseif (str_contains($proceso_nombre, 'ENSAMBLADO')) {
-                    $query->orWhere('codigo', 'LIKE', 'EN%');
+                    $query->orWhere(function($q) {
+                        $q->where('codigo', 'LIKE', 'EN%')
+                          ->where('codigo', 'NOT LIKE', 'EN07-Z%');
+                    });
+                } elseif (str_contains($proceso_nombre, 'ENCARTONADO')) {
+                    $query->orWhere('codigo', 'LIKE', 'ENC%')
+                          ->orWhere('codigo', 'LIKE', 'EN07-Z%');
                 } elseif (str_contains($proceso_nombre, 'MOLIDO')) {
                     $query->orWhere('codigo', 'LIKE', 'MO%');
                 }
@@ -420,6 +427,7 @@ class OrdenProcesoController extends Controller
 
         $inventario_merma_clip = collect();
         $inventario_merma_cascara = collect();
+        $inventario_merma_carton = collect();
         if ($es_ensamblado || $es_ensamblado_manual) {
             $almacen_ensamblado = DB::table('proceso_produccion')->where('codigo', $proceso->codigo_proceso)->value('codigo_almacen');
             
@@ -447,24 +455,61 @@ class OrdenProcesoController extends Controller
             })->values();
         }
 
+        if ($es_encartonado) {
+            $almacen_encartonado = DB::table('proceso_produccion')->where('codigo', $proceso->codigo_proceso)->value('codigo_almacen') ?? 'PS5E';
+            
+            $stock_encartonado = DB::table('inventario as i')
+                ->join('producto as p', 'i.codigo_producto', '=', 'p.codigo')
+                ->leftJoin('unidad_medida as u', 'p.codigo_unidad_medida', '=', 'u.codigo')
+                ->where('i.codigo_almacen', $almacen_encartonado)
+                ->where('i.stock_actual', '>', 0)
+                ->select(
+                    'i.codigo_producto', 
+                    'p.descripcion', 
+                    'p.codigo_tipo_producto', 
+                    'u.descripcion as unidad_medida',
+                    DB::raw('SUM(i.stock_actual) as stock_total')
+                )
+                ->groupBy('i.codigo_producto', 'p.descripcion', 'p.codigo_tipo_producto', 'u.descripcion')
+                ->get();
+                
+            $inventario_merma_clip = $stock_encartonado->filter(function($i) {
+                return str_contains(strtoupper($i->descripcion), 'CLIP') && !str_starts_with($i->codigo_producto, 'CA');
+            })->values();
+
+            $inventario_merma_cascara = $stock_encartonado->filter(function($i) {
+                return str_starts_with($i->codigo_producto, 'CA') || str_contains(strtoupper($i->descripcion), 'CASCARA') || str_starts_with($i->codigo_producto, 'EN');
+            })->values();
+
+            $inventario_merma_carton = $stock_encartonado->filter(function($i) {
+                return str_contains(strtoupper($i->descripcion), 'CARTON') || in_array($i->codigo_tipo_producto, ['AUX', 'ENV', 'EMB']);
+            })->values();
+        }
+
         $registrados = ComponenteOrdenProduccion::where('id_proceso', $id)->where('estado', 1)->orderBy('fecha_inicio', 'asc')->orderBy('hora_inicio', 'asc')->get();
         $tiene_componentes = ($registrados->count() > 0);
 
         $peso_consumido = 0;
-        if ($es_troquelado || $es_horneado) {
+        if ($es_troquelado) {
             $peso_consumido = $registrados->where('codigo_tipo_producto', '!=', 'ACT')->sum('cantidad');
         }
 
         // Agrupar por fórmula y fecha de creación (Cargas)
         $cargas_agrupadas = collect();
-        if ($es_inyectado || $es_mezclado || $es_ensamblado || $es_ensamblado_manual || $es_molido || $es_troquelado || $es_horneado) {
+        if ($es_inyectado || $es_mezclado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_molido || $es_troquelado || $es_horneado) {
             $cargas_agrupadas = $registrados->groupBy(function($item) {
-                // If it doesn't have a formula, group it as MANUAL
-                $formula = $item->codigo_formula_produccion ?? 'MANUAL';
+                if ($item->codigo_tipo_producto === 'ACT' || $item->codigo_tipo_producto === 'MANUAL') {
+                    $formula = 'MANUAL_ACT_' . $item->id_op_componentes;
+                } else {
+                    $formula = $item->codigo_formula_produccion ?? 'MANUAL_' . $item->id_op_componentes;
+                }
+                // Include tipo_operacion to prevent merging different operation types (e.g., limpieza vs recuperado_maquina)
+                $tipoOp = $item->tipo_operacion ?? 'produccion';
                 // Group by creation minute and exact execution times to keep batches together but separate independent records
                 $createdAtMinute = \Carbon\Carbon::parse($item->created_at)->format('Y-m-d H:i');
-                return $formula . '_' . $item->fecha_inicio . '_' . $item->hora_inicio . '_' . $item->hora_fin . '_' . $createdAtMinute;
+                return $formula . '_' . $tipoOp . '_' . $item->fecha_inicio . '_' . $item->hora_inicio . '_' . $item->hora_fin . '_' . $createdAtMinute;
             });
+
         }
 
         $tipos_producto = DB::table('tipo_producto')->select('codigo', 'descripcion')->where('estado', 1)->get();
@@ -525,27 +570,35 @@ class OrdenProcesoController extends Controller
 
         $centros_trabajo = $query_centros->get();
 
-        // Si no hay centros vinculados para ensamblado manual, mostrar los que digan ensamblado manual (fallback)
+        // Si no hay centros vinculados para ensamblado manual o encartonado, fallback
         if ($centros_trabajo->isEmpty() && $es_ensamblado_manual) {
             $centros_trabajo = DB::table('centro_trabajo_produccion')
                 ->select('codigo', 'descripcion')
                 ->where('descripcion', 'LIKE', '%ENSAMBLADO MANUAL%')
                 ->where('estado', 1)
                 ->get();
+        } elseif ($centros_trabajo->isEmpty() && $es_encartonado) {
+            $centros_trabajo = DB::table('centro_trabajo_produccion')
+                ->select('codigo', 'descripcion')
+                ->where(function($q) {
+                    $q->where('codigo', 'LIKE', 'ENC%')
+                      ->orWhere('descripcion', 'LIKE', '%ENCARTON%');
+                })
+                ->where('estado', 1)
+                ->get();
         }
-
 
         $almacenes = DB::table('almacen')->where('activo', 1)->get();
         $proceso_produccion_almacen = DB::table('proceso_produccion')->where('codigo', $proceso->codigo_proceso)->value('codigo_almacen');
 
-        // Ya no se deduce el producto resultante automáticamente para Troquelado/Horneado
-        // dado que ahora trabajan con fórmulas directamente.
+        // Sugerencia para encadenamiento de inyectadas: la inicial toma la última inyectada final registrada
+        $inyectada_inicial_sugerida = $proceso->inyectada_final ?? $proceso->inyectada_inicial ?? '';
         $producto_sugerido = null;
 
         return view('produccion.procesos.ejecucion', compact(
-            'orden', 'proceso', 'estado_proceso_actual', 'es_actividad', 'es_mezclado', 'es_inyectado', 'es_ensamblado', 'es_ensamblado_manual', 'es_molido', 'es_troquelado', 'es_horneado', 'peso_inicial', 'tara', 'peso_neto', 'peso_consumido',
-            'formulas_disponibles', 'inventario_merma_clip', 'inventario_merma_cascara', 'registrados', 'cargas_agrupadas', 'tiene_componentes', 'tipos_producto',
-            'colores', 'unidades', 'trabajadores', 'moldes', 'centros_trabajo', 'almacenes', 'proceso_produccion_almacen', 'producto_sugerido'
+            'orden', 'proceso', 'estado_proceso_actual', 'es_actividad', 'es_mezclado', 'es_inyectado', 'es_ensamblado', 'es_ensamblado_manual', 'es_encartonado', 'es_molido', 'es_troquelado', 'es_horneado', 'peso_inicial', 'tara', 'peso_neto', 'peso_consumido',
+            'formulas_disponibles', 'inventario_merma_clip', 'inventario_merma_cascara', 'inventario_merma_carton', 'registrados', 'cargas_agrupadas', 'tiene_componentes', 'tipos_producto',
+            'colores', 'unidades', 'trabajadores', 'moldes', 'centros_trabajo', 'almacenes', 'proceso_produccion_almacen', 'producto_sugerido', 'inyectada_inicial_sugerida'
         ));
     }
 
@@ -584,9 +637,9 @@ class OrdenProcesoController extends Controller
 
         $componentes = $query->get();
 
-
-        // Lógica de ensamblado (dinámica) si no se pasa molde desde el UI
-        if (!$codigo_molde) {
+        // Lógica de ensamblado (dinámica) si no se pasa molde desde el UI (omitir para encartonado)
+        $es_formula_encartonado = str_starts_with($codigo_formula, 'ENC-') || str_starts_with($codigo_formula, 'EN07-Z');
+        if (!$codigo_molde && !$es_formula_encartonado) {
             $componentesFiltrados = collect();
             $productosConMolde = [];
 
@@ -692,32 +745,7 @@ class OrdenProcesoController extends Controller
         try {
             DB::beginTransaction();
 
-            $proceso = DB::table('orden_proceso')->where('id', $id)->first();
-            if ($proceso && $proceso->codigo_proceso == '17') {
-                $orden = DB::table('orden_produccion_global')->where('idop', $idop)->first();
-                $peso_neto = max(0, floatval($orden->cantidad) - floatval($orden->tara));
-                
-                $cantidad_existente = DB::table('componentes_orden_produccion_global')
-                    ->where('idop', $idop)
-                    ->where('id_proceso', $id)
-                    ->where('estado', 1)
-                    ->where('codigo_tipo_producto', '!=', 'ACT')
-                    ->sum('cantidad') ?? 0;
-                
-                $cantidad_nueva = 0;
-                foreach ($componentes as $c) {
-                    $tipo = $c['codigo_tipo_producto'] ?? 'MTP';
-                    if ($tipo !== 'ACT' && !str_contains(strtolower($c['descripcion'] ?? ''), 'parada') && !str_contains(strtolower($c['descripcion'] ?? ''), 'cambio')) {
-                        $cantidad_nueva += floatval($c['cantidad'] ?? 0);
-                    }
-                }
-                
-                if (round($cantidad_existente + $cantidad_nueva, 2) > round($peso_neto, 2)) {
-                    throw new \Exception("La suma de las cantidades (" . number_format($cantidad_existente + $cantidad_nueva, 2) . " KG) supera el Peso Neto (" . number_format($peso_neto, 2) . " KG). Actualice la cantidad a registrar.");
-                }
-            }
-
-            $usuario_id = Auth::user()->id_usuario ?? 5;
+            $usuario_id = Auth::id();
             $batch_id = mt_rand(1000, 9999);
             $numero_referencia = "OP-{$idop}-PROC-{$id}-" . $batch_id;
             
@@ -738,24 +766,14 @@ class OrdenProcesoController extends Controller
                 $descripcion_molde_op = DB::table('molde')->where('codigo', $codigo_molde_op)->value('descripcion');
             }
 
+            $orden = OrdenProduccion::findOrFail($idop);
+            if ($orden->estado === 'COMPLETADO' || $orden->activo == 0) {
+                throw new \Exception("No se pueden registrar componentes en una orden " . ($orden->activo == 0 ? 'ANULADA' : 'COMPLETADA') . ".");
+            }
+
             $proceso = OrdenProceso::findOrFail($id);
             if ($proceso->estado_avance === 'COMPLETADO') {
                 throw new \Exception("No se pueden registrar componentes en un proceso COMPLETADO.");
-            }
-
-            // Validar peso neto si es Troquelado
-            if ($proceso->codigo_proceso == '17') {
-                $orden = OrdenProduccion::findOrFail($idop);
-                $peso_neto = max(0, floatval($orden->cantidad) - floatval($orden->tara));
-                if ($peso_neto > 0) {
-                    $consumo_total = 0;
-                    foreach ($componentes as $comp) {
-                        $consumo_total += floatval($comp['cantidad'] ?? 0);
-                    }
-                    if ($consumo_total > $peso_neto) {
-                        throw new \Exception("El consumo total ({$consumo_total} KG) excede el Peso Neto del Rollo ({$peso_neto} KG).");
-                    }
-                }
             }
 
             $es_actividad = ($proceso->codigo_proceso == '1');
@@ -812,15 +830,25 @@ class OrdenProcesoController extends Controller
             }
 
             // Flujo Producción
-            $fecha_movimiento_general = now();
+            $fecha_movimiento_general = now()->format('Y-m-d H:i:s');
             if (count($componentes) > 0 && !empty($componentes[0]['fecha_inicio'])) {
-                $fecha_movimiento_general = $componentes[0]['fecha_inicio'] . ' ' . ($componentes[0]['hora_inicio'] ?? now()->format('H:i:s'));
+                $hora_inicio = !empty($componentes[0]['hora_inicio']) ? $componentes[0]['hora_inicio'] : '00:00:00';
+                if (strlen($hora_inicio) == 5) {
+                    $hora_inicio .= ':00';
+                }
+                $fecha_movimiento_general = $componentes[0]['fecha_inicio'] . ' ' . $hora_inicio;
             }
             $faltantes = [];
             $cantidades_agrupadas = [];
             $total_insumos_ingresados = 0;
 
             foreach ($componentes as $comp) {
+                $codigo_tipo = $comp['codigo_tipo_producto'] ?? 'MTP';
+                // Si es Actividad, es únicamente referencial (HH / HM): NO validar stock
+                if ($codigo_tipo === 'ACT') {
+                    continue;
+                }
+
                 $cod = $comp['codigo_producto'];
                 $cant = floatval($comp['cantidad']);
                 if (!isset($cantidades_agrupadas[$cod])) { $cantidades_agrupadas[$cod] = 0; }
@@ -828,37 +856,65 @@ class OrdenProcesoController extends Controller
                 $total_insumos_ingresados += $cant;
             }
 
+            // Validación de Saldo de Rollo en Troquelado
+            $desc_proceso_upper = strtoupper(DB::table('proceso_produccion')->where('codigo', $proceso->codigo_proceso)->value('descripcion') ?? ($proceso->descripcion_proceso ?? ''));
+            $es_troquelado = ($proceso->codigo_proceso == '17') || str_contains($desc_proceso_upper, 'TROQUELADO');
+            if ($es_troquelado) {
+                $peso_neto = max(0, floatval($orden->cantidad) - floatval($orden->tara));
+                if ($peso_neto > 0) {
+                    $consumido_previo = DB::table('componentes_orden_produccion_global')
+                        ->where('id_proceso', $id)
+                        ->where(function($q) { $q->where('estado', 1)->orWhereNull('estado'); })
+                        ->where('codigo_tipo_producto', '!=', 'ACT')
+                        ->sum('cantidad') ?? 0;
+
+                    $nuevo_consumo = 0;
+                    foreach ($componentes as $comp) {
+                        if (($comp['codigo_tipo_producto'] ?? 'MTP') !== 'ACT') {
+                            $nuevo_consumo += floatval($comp['cantidad'] ?? 0);
+                        }
+                    }
+
+                    if (($consumido_previo + $nuevo_consumo) > ($peso_neto + 0.001)) {
+                        $saldo_disp = max(0, $peso_neto - $consumido_previo);
+                        throw new \Exception("El consumo total (" . number_format($consumido_previo + $nuevo_consumo, 2) . " KG) excede el Peso Neto del Rollo (" . number_format($peso_neto, 2) . " KG). Saldo disponible: " . number_format($saldo_disp, 2) . " KG.");
+                    }
+                }
+            }
+
             $codigo_almacen_consumo = $request->input('codigo_almacen_consumo');
-            if (empty($codigo_almacen_consumo) && !$es_actividad) {
+            if (empty($codigo_almacen_consumo) && !$es_actividad && !empty($cantidades_agrupadas)) {
                 throw new \Exception("Debe seleccionar un Almacén de Consumo.");
             }
 
-            $nomProductos = DB::table('producto')
-                ->whereIn('codigo', array_keys($cantidades_agrupadas))
-                ->pluck('descripcion', 'codigo');
+            if (!empty($cantidades_agrupadas)) {
+                $nomProductos = DB::table('producto')
+                    ->whereIn('codigo', array_keys($cantidades_agrupadas))
+                    ->pluck('descripcion', 'codigo');
 
-            foreach ($cantidades_agrupadas as $codigo_prod => $cant_req) {
-                $query_disp = DB::table('inventario as i')
-                    ->join('almacen as a', 'i.codigo_almacen', '=', 'a.codigo_almacen')
-                    ->where('i.codigo_producto', $codigo_prod)
-                    ->where('a.activo', 1)
-                    ->where(function($q) { $q->where('i.estado', 1)->orWhereNull('i.estado'); });
+                foreach ($cantidades_agrupadas as $codigo_prod => $cant_req) {
+                    $query_disp = DB::table('inventario as i')
+                        ->join('almacen as a', 'i.codigo_almacen', '=', 'a.codigo_almacen')
+                        ->where('i.codigo_producto', $codigo_prod)
+                        ->where('a.activo', 1)
+                        ->where(function($q) { $q->where('i.estado', 1)->orWhereNull('i.estado'); });
 
-                if ($codigo_almacen_consumo) {
-                    $query_disp->where('i.codigo_almacen', $codigo_almacen_consumo);
+                    if ($codigo_almacen_consumo) {
+                        $query_disp->where('i.codigo_almacen', $codigo_almacen_consumo);
+                    }
+
+                    $stock_disp = $query_disp->lockForUpdate()->sum('i.stock_actual') ?? 0;
+
+                    if ($stock_disp < $cant_req) {
+                        $alm_msg = $codigo_almacen_consumo ? " en el almacén seleccionado ($codigo_almacen_consumo)" : " en almacén";
+                        $nombre_prod = $nomProductos[$codigo_prod] ?? $codigo_prod;
+                        $faltantes[] = "[$nombre_prod] Req: " . number_format($cant_req, 2) . " | Disp: " . number_format($stock_disp, 2) . $alm_msg;
+                    }
                 }
 
-                $stock_disp = $query_disp->lockForUpdate()->sum('i.stock_actual') ?? 0;
-
-                if ($stock_disp < $cant_req) {
-                    $alm_msg = $codigo_almacen_consumo ? " en el almacén seleccionado ($codigo_almacen_consumo)" : " en almacén";
-                    $nombre_prod = $nomProductos[$codigo_prod] ?? $codigo_prod;
-                    $faltantes[] = "[$nombre_prod] Req: " . number_format($cant_req, 2) . " | Disp: " . number_format($stock_disp, 2) . $alm_msg;
+                if (!empty($faltantes)) {
+                    throw new \Exception("STOCK INSUFICIENTE. Faltan materiales en almacén: " . implode(" ; ", $faltantes));
                 }
-            }
-
-            if (!empty($faltantes)) {
-                throw new \Exception("STOCK INSUFICIENTE. Faltan materiales en almacén: " . implode(" ; ", $faltantes));
             }
 
             $grupos_pep = []; 
@@ -887,17 +943,19 @@ class OrdenProcesoController extends Controller
             foreach ($componentes as $comp) {
                 $codigo_producto = $comp['codigo_producto'];
                 $cantidad = floatval($comp['cantidad']);
+                $codigo_tipo = $comp['codigo_tipo_producto'] ?? 'MTP';
                 
-                $codigo_formula = !empty($comp['codigo_formula']) ? $comp['codigo_formula'] : null;
+                $codigo_formula = ($codigo_tipo === 'ACT') ? null : (!empty($comp['codigo_formula']) ? $comp['codigo_formula'] : null);
                 $codigo_color = !empty($comp['codigo_color']) ? $comp['codigo_color'] : null;
                 $codigo_centro_trabajo = !empty($comp['codigo_centro_trabajo']) ? $comp['codigo_centro_trabajo'] : null;
                 $codigo_molde = !empty($comp['codigo_molde']) ? $comp['codigo_molde'] : null;
                 $codigo_trabajador = !empty($comp['codigo_trabajador']) ? $comp['codigo_trabajador'] : null;
 
                 $tipo_op_origen = $request->input('tipo_operacion_origen', 'inyectado');
+                $es_merma_directa = in_array($tipo_op_origen, ['recuperado_clip', 'merma_cascara', 'merma_carton']) || ($tipo_op_origen === 'merma_clip' && empty($codigo_formula));
                 
-                if (in_array($tipo_op_origen, ['merma_clip', 'recuperado_clip', 'merma_cascara'])) {
-                    // No agrupar PEPs para mermas directas. Es sólo consumo/salida directa.
+                if ($es_merma_directa || $codigo_tipo === 'ACT') {
+                    // No agrupar PEPs para mermas directas sin formula ni para actividades.
                 } elseif (!empty($codigo_formula)) {
                     $codigo_pep = $this->determinarCodigoPEP($codigo_formula);
                     if (empty($codigo_pep)) {
@@ -962,13 +1020,27 @@ class OrdenProcesoController extends Controller
                     }
                 }
 
+                $desc_act = null;
+                if ($codigo_tipo === 'ACT') {
+                    $desc_act = DB::table('actividad_produccion')->where('codigo', $codigo_producto)->value('descripcion') 
+                        ?? ($descProducto[$codigo_producto] ?? $codigo_producto);
+
+                    DB::table('producto')->insertOrIgnore([
+                        'codigo' => $codigo_producto,
+                        'descripcion' => $desc_act,
+                        'codigo_tipo_producto' => 'ACT',
+                        'es_producto_proceso' => 0,
+                        'estado' => 1
+                    ]);
+                }
+
                 $componente = ComponenteOrdenProduccion::create([
                     'idop' => $idop,
                     'id_proceso' => $id,
-                    'codigo_tipo_producto' => $comp['codigo_tipo_producto'] ?? 'MTP',
-                    'descripcion_tipo_producto' => $descTipoProducto[$comp['codigo_tipo_producto'] ?? 'MTP'] ?? '',
+                    'codigo_tipo_producto' => $codigo_tipo,
+                    'descripcion_tipo_producto' => ($codigo_tipo === 'ACT') ? 'ACTIVIDADES PRODUCCION' : ($descTipoProducto[$codigo_tipo] ?? ''),
                     'codigo_producto' => $codigo_producto,
-                    'descripcion_producto' => $descProducto[$codigo_producto] ?? '',
+                    'descripcion_producto' => ($codigo_tipo === 'ACT') ? ($desc_act ?? $descProducto[$codigo_producto] ?? $codigo_producto) : ($descProducto[$codigo_producto] ?? ''),
                     'codigo_centro_trabajo' => $codigo_centro_trabajo,
                     'descripcion_centro_trabajo' => $codigo_centro_trabajo ? ($descCentroTrabajo[$codigo_centro_trabajo] ?? '') : null,
                     'codigo_molde' => $codigo_molde,
@@ -990,6 +1062,7 @@ class OrdenProcesoController extends Controller
                     'hora_inicio_maquina' => $comp['hora_inicio_maquina'] ?? $comp['hora_inicio'],
                     'fecha_fin_maquina' => $comp['fecha_fin_maquina'] ?? $comp['fecha_fin'],
                     'hora_fin_maquina' => $comp['hora_fin_maquina'] ?? $comp['hora_fin'],
+                    'observaciones' => $comp['observacion'] ?? null,
                     'estado' => 1,
                     'tipo_operacion' => $request->input('tipo_operacion_origen', 'inyectado'),
                 ]);
@@ -998,6 +1071,12 @@ class OrdenProcesoController extends Controller
                     $grupos_pep[$key]['ids_componentes'][] = $componente->id_op_componentes;
                 }
                 unset($key);
+
+                if ($codigo_tipo === 'ACT') {
+                    // Las actividades manuales son únicamente de referencia (HH / HM).
+                    // No deben consumir inventario ni afectar Kardex.
+                    continue;
+                }
 
                 $idComponente = $componente->id_op_componentes;
 
@@ -1228,7 +1307,7 @@ class OrdenProcesoController extends Controller
 
             $tipo_op_origen = $request->input('tipo_operacion_origen', 'inyectado');
             $almacen_origen = $request->input('codigo_almacen_consumo', 'ALM-PEP');
-            $es_merma = in_array($tipo_op_origen, ['limpieza', 'merma_pura', 'recuperado_molido', 'recuperado_maquina']);
+            $es_merma = in_array($tipo_op_origen, ['purga', 'limpieza', 'merma_pura', 'recuperado_molido', 'recuperado_maquina', 'merma_empaque', 'merma_clip', 'merma_cascara', 'merma_carton']);
 
             $costo_total_consumos = 0;
             foreach ($consumosResumen as $res) {
@@ -1247,15 +1326,36 @@ class OrdenProcesoController extends Controller
                     }
 
                     if ($es_merma) {
-                        $tipoMerma = 'RECUPERABLE';
-                        $motivoM = 'RECICLADO INYECCION';
+                        $prodPrincipal = DB::table('producto')->where('codigo', $g['codigo_pep'])->first();
+                        $descBase = $prodPrincipal->descripcion ?? $g['descripcion_pep'] ?? '';
 
-                        if ($tipo_op_origen === 'limpieza') {
-                            $tipoMerma = 'MIXTO';
-                            $motivoM = 'RECICLADO DE LIMPIEZA';
-                        } elseif (str_contains($tipo_op_origen, 'molido')) {
+                        $tipoMerma = 'RECUPERABLE';
+                        $motivoM = 'RECUPERADO MOLIDO DE MAQUINA';
+
+                        if ($tipo_op_origen === 'purga') {
+                            $tipoMerma = 'PURA';
+                            $motivoM = 'PURGA';
+                        } elseif ($tipo_op_origen === 'limpieza') {
+                            $tipoMerma = 'RECUPERABLE';
+                            $motivoM = 'LIMPIEZA';
+                        } elseif ($tipo_op_origen === 'merma_empaque') {
+                            $tipoMerma = 'RECUPERABLE';
+                            $motivoM = 'MERMA EMPAQUE';
+                        } elseif ($tipo_op_origen === 'merma_clip') {
+                            $tipoMerma = 'RECUPERABLE';
+                            $motivoM = 'MERMA CLIP';
+                        } elseif ($tipo_op_origen === 'merma_cascara') {
+                            $tipoMerma = 'RECUPERABLE';
+                            $motivoM = 'CASCARA PARA MOLIDO';
+                        } elseif ($tipo_op_origen === 'merma_carton') {
+                            $tipoMerma = 'DESECHO';
+                            $motivoM = 'MERMA CARTON';
+                        } elseif ($tipo_op_origen === 'recuperado_molido') {
                             $tipoMerma = 'MOLIDO';
-                            $motivoM = 'RECUPERADO MOLIDO';
+                            $motivoM = 'RECUPERADO PARA MOLER';
+                        } elseif ($tipo_op_origen === 'recuperado_maquina') {
+                            $tipoMerma = 'RECUPERABLE';
+                            $motivoM = 'RECUPERADO MOLIDO DE MAQUINA';
                         } elseif ($tipo_op_origen === 'merma_pura') {
                             $tipoMerma = 'PURA';
                             $motivoM = 'MERMA PURA';
@@ -1269,7 +1369,7 @@ class OrdenProcesoController extends Controller
                             'hora_fin' => $componentes[0]['hora_fin'] ?? null,
                             'codigo_trabajador' => $componentes[0]['codigo_trabajador'] ?? null,
                             'codigo_producto' => $g['codigo_pep'],
-                            'descripcion_producto' => $g['descripcion_pep'],
+                            'descripcion_producto' => $descBase,
                             'cantidad' => $g['cant'],
                             'costo_unitario' => $costo_unitario_merma,
                             'costo_total' => $costo_total_consumos,
@@ -1283,58 +1383,77 @@ class OrdenProcesoController extends Controller
                             'updated_at' => now()
                         ]);
 
-                        if ($tipo_op_origen !== 'merma_pura') {
-                            // Generar el ingreso a Kardex de la Merma (REC-)
+                        if (!in_array($tipo_op_origen, ['merma_pura', 'purga'])) {
+                            // Generar el ingreso a Kardex de la Merma Recuperable
                             $param = DB::table('parametros_sistema')->where('codigo_parametro', 'PORCENTAJE_COSTO_RECICLADO')->first();
                             $porcentaje = $param ? (float) $param->valor : 0.8;
                             
                             $costoReciclado = $costo_unitario_merma * $porcentaje;
                             $totalEntradaRec = round($g['cant'] * $costoReciclado, 2);
 
-                            $codRecuperado = 'REC-' . $g['codigo_pep'];
-                            $prodPrincipal = DB::table('producto')->where('codigo', $g['codigo_pep'])->first();
-
-                            DB::table('producto')->updateOrInsert(
-                                ['codigo' => $codRecuperado],
-                                [
-                                    'descripcion' => 'RECUPERADO - ' . $g['descripcion_pep'],
-                                    'codigo_tipo_producto' => $prodPrincipal->codigo_tipo_producto ?? 'PEP',
+                            $codRecuperado = $this->determinarCodigoRecuperado($g['codigo_pep'], $g['formula'], $tipo_op_origen);
+                            $prodRec = DB::table('producto')->where('codigo', $codRecuperado)->first();
+                            
+                            if (!$prodRec) {
+                                DB::table('producto')->insert([
+                                    'codigo' => $codRecuperado,
+                                    'descripcion' => 'RECUPERADO - ' . $descBase,
+                                    'codigo_tipo_producto' => 'REC',
                                     'codigo_unidad_medida' => $prodPrincipal->codigo_unidad_medida ?? 'KG',
                                     'estado' => 1
-                                ]
-                            );
+                                ]);
+                            }
 
-                            DB::table('inventario')->updateOrInsert(
-                                ['codigo_producto' => $codRecuperado, 'codigo_almacen' => $almacen_origen],
-                                ['stock_minimo' => 0, 'stock_maximo' => 0]
-                            );
+                            $lote_rec = $this->generarCodigoPEP($codRecuperado, $g['color'], $id);
 
                             $invRec = DB::table('inventario')
                                 ->where('codigo_producto', $codRecuperado)
                                 ->where('codigo_almacen', $almacen_origen)
+                                ->where('lote', $lote_rec)
                                 ->first();
 
-                            $saldoAnteriorRec = $invRec->stock_actual ?? 0;
-                            $costoPromAnteriorRec = $invRec->costo_promedio ?? 0;
-                            $nuevoSaldoRec = $saldoAnteriorRec + $g['cant'];
-                            $nuevoTotalSaldoRec = ($saldoAnteriorRec * $costoPromAnteriorRec) + $totalEntradaRec;
-                            $nuevoCostoPromRec = $nuevoSaldoRec > 0 ? round($nuevoTotalSaldoRec / $nuevoSaldoRec, 6) : 0;
-
-                            DB::table('inventario')
-                                ->where('codigo_producto', $codRecuperado)
-                                ->where('codigo_almacen', $almacen_origen)
-                                ->update([
-                                    'stock_actual' => $nuevoSaldoRec,
-                                    'costo_promedio' => $nuevoCostoPromRec,
-                                    'fecha_ultimo_movimiento' => now(),
+                            if (!$invRec) {
+                                DB::table('inventario')->insert([
+                                    'codigo_producto' => $codRecuperado,
+                                    'codigo_almacen' => $almacen_origen,
+                                    'lote' => $lote_rec,
+                                    'stock_actual' => $g['cant'],
+                                    'costo_promedio' => $costoReciclado,
+                                    'ultimo_costo' => $costoReciclado,
+                                    'stock_minimo' => 0,
+                                    'stock_maximo' => 0,
+                                    'estado' => 1,
+                                    'fecha_ultimo_movimiento' => $fecha_movimiento_general,
                                     'usuario_ultimo_movimiento' => $usuario_id
                                 ]);
+                            } else {
+                                $saldoAnteriorRec = $invRec->stock_actual ?? 0;
+                                $costoPromAnteriorRec = $invRec->costo_promedio ?? 0;
+                                $nuevoSaldoRec = $saldoAnteriorRec + $g['cant'];
+                                $nuevoTotalSaldoRec = ($saldoAnteriorRec * $costoPromAnteriorRec) + $totalEntradaRec;
+                                $nuevoCostoPromRec = $nuevoSaldoRec > 0 ? round($nuevoTotalSaldoRec / $nuevoSaldoRec, 6) : 0;
+
+                                DB::table('inventario')
+                                    ->where('id_inventario', $invRec->id_inventario)
+                                    ->update([
+                                        'stock_actual' => $nuevoSaldoRec,
+                                        'costo_promedio' => $nuevoCostoPromRec,
+                                        'fecha_ultimo_movimiento' => $fecha_movimiento_general,
+                                        'usuario_ultimo_movimiento' => $usuario_id
+                                    ]);
+                            }
+
+                            $stockTotalAlmacen = DB::table('inventario')
+                                ->where('codigo_producto', $codRecuperado)
+                                ->where('codigo_almacen', $almacen_origen)
+                                ->sum('stock_actual') ?? 0;
 
                             $numeroDocMerma = 'MERMA-' . str_pad($id_merma, 6, '0', STR_PAD_LEFT);
 
                             DB::table('kardex')->insert([
                                 'codigo_producto' => $codRecuperado,
                                 'codigo_almacen' => $almacen_origen,
+                                'lote' => $lote_rec,
                                 'fecha_movimiento' => $fecha_movimiento_general,
                                 'tipo_movimiento' => 'INGRESO',
                                 'documento' => $motivoM,
@@ -1345,14 +1464,105 @@ class OrdenProcesoController extends Controller
                                 'cantidad_salida' => 0,
                                 'costo_salida' => 0,
                                 'total_salida' => 0,
-                                'cantidad_saldo' => $nuevoSaldoRec,
-                                'costo_promedio' => $nuevoCostoPromRec,
-                                'total_saldo' => round($nuevoSaldoRec * $nuevoCostoPromRec, 6),
+                                'cantidad_saldo' => $stockTotalAlmacen,
+                                'costo_promedio' => $costoReciclado,
+                                'total_saldo' => round($stockTotalAlmacen * $costoReciclado, 6),
                                 'observaciones' => "INGRESO DE MATERIAL RECUPERADO DE MERMA OP-{$idop}",
                                 'usuario_registro' => $usuario_id
                             ]);
                         }
                     } else {
+                        $costo_unitario_pep = $g['cant'] > 0 ? round($costo_total_consumos / $g['cant'], 6) : 0;
+                        $totalEntradaPep = round($g['cant'] * $costo_unitario_pep, 2);
+
+                        // 1. Registrar o actualizar en inventario directamente en el almacén de consumo
+                        $invPep = DB::table('inventario')
+                            ->where('codigo_producto', $g['codigo_pep'])
+                            ->where('codigo_almacen', $almacen_origen)
+                            ->where('lote', $lote_pep)
+                            ->first();
+
+                        if (!$invPep) {
+                            DB::table('inventario')->insert([
+                                'codigo_producto' => $g['codigo_pep'],
+                                'codigo_almacen' => $almacen_origen,
+                                'lote' => $lote_pep,
+                                'stock_actual' => $g['cant'],
+                                'costo_promedio' => $costo_unitario_pep,
+                                'ultimo_costo' => $costo_unitario_pep,
+                                'stock_minimo' => 0,
+                                'stock_maximo' => 0,
+                                'estado' => 1,
+                                'fecha_ultimo_movimiento' => $fecha_movimiento_general,
+                                'usuario_ultimo_movimiento' => $usuario_id
+                            ]);
+                        } else {
+                            $saldoAnt = $invPep->stock_actual ?? 0;
+                            $costoPromAnt = $invPep->costo_promedio ?? 0;
+                            $nuevoSaldo = $saldoAnt + $g['cant'];
+                            $nuevoTotalSaldo = ($saldoAnt * $costoPromAnt) + $totalEntradaPep;
+                            $nuevoCostoProm = $nuevoSaldo > 0 ? round($nuevoTotalSaldo / $nuevoSaldo, 6) : 0;
+
+                            DB::table('inventario')
+                                ->where('id_inventario', $invPep->id_inventario)
+                                ->update([
+                                    'stock_actual' => $nuevoSaldo,
+                                    'costo_promedio' => $nuevoCostoProm,
+                                    'fecha_ultimo_movimiento' => $fecha_movimiento_general,
+                                    'usuario_ultimo_movimiento' => $usuario_id
+                                ]);
+                        }
+
+                        $stockTotalAlmacenPep = DB::table('inventario')
+                            ->where('codigo_producto', $g['codigo_pep'])
+                            ->where('codigo_almacen', $almacen_origen)
+                            ->sum('stock_actual') ?? 0;
+
+                        $numeroDocPep = "OP-{$idop}-PROC-{$id}";
+
+                        // 2. Movimiento Inventario
+                        $movPepId = DB::table('movimientos_inventario')->insertGetId([
+                            'codigo_almacen' => $almacen_origen,
+                            'codigo_producto' => $g['codigo_pep'],
+                            'lote' => $lote_pep,
+                            'tipo_movimiento' => 'INGRESO',
+                            'cantidad' => $g['cant'],
+                            'costo_unitario' => $costo_unitario_pep,
+                            'total' => $totalEntradaPep,
+                            'documento_referencia' => 'PRODUCCION',
+                            'numero_referencia' => $numeroDocPep,
+                            'idop' => $idop,
+                            'observaciones' => "Ingreso directo de producción OP-{$idop} Proceso {$id}",
+                            'usuario_movimiento' => $usuario_id,
+                            'fecha_movimiento' => $fecha_movimiento_general,
+                            'estado' => 1,
+                            'tiene_kardex' => true
+                        ]);
+
+                        // 3. Kardex
+                        DB::table('kardex')->insert([
+                            'codigo_producto' => $g['codigo_pep'],
+                            'codigo_almacen' => $almacen_origen,
+                            'lote' => $lote_pep,
+                            'fecha_movimiento' => $fecha_movimiento_general,
+                            'tipo_movimiento' => 'INGRESO',
+                            'documento' => 'RECEPCION_PEP',
+                            'numero_documento' => $numeroDocPep,
+                            'cantidad_entrada' => $g['cant'],
+                            'costo_entrada' => $costo_unitario_pep,
+                            'total_entrada' => $totalEntradaPep,
+                            'cantidad_salida' => 0,
+                            'costo_salida' => 0,
+                            'total_salida' => 0,
+                            'cantidad_saldo' => $stockTotalAlmacenPep,
+                            'costo_promedio' => $costo_unitario_pep,
+                            'total_saldo' => round($stockTotalAlmacenPep * $costo_unitario_pep, 6),
+                            'codigo_referencia_movimiento' => $movPepId,
+                            'observaciones' => "Ingreso directo de producción OP-{$idop}",
+                            'usuario_registro' => $usuario_id
+                        ]);
+
+                        // 4. Registro histórico en produccion_ingresos_proceso (APROBADO directo)
                         DB::table('produccion_ingresos_proceso')->insert([
                             'idop' => $idop,
                             'id_proceso' => $id,
@@ -1360,11 +1570,11 @@ class OrdenProcesoController extends Controller
                             'descripcion_producto_proceso' => $g['descripcion_pep'],
                             'cantidad' => $g['cant'],
                             'codigo_unidad_medida' => $g['unidad'],
-                            'codigo_almacen' => 'ALM-PEP',
+                            'codigo_almacen' => $almacen_origen,
                             'lote_produccion' => $lote_pep,
                             'fecha_ingreso' => $fecha_movimiento_general,
                             'usuario_registro' => $usuario_id,
-                            'estado' => 'PENDIENTE',
+                            'estado' => 'APROBADO',
                             'codigo_molde' => $codigo_molde_op,
                             'descripcion_molde' => $descripcion_molde_op
                         ]);
@@ -1381,8 +1591,94 @@ class OrdenProcesoController extends Controller
                 $unidad_pr = $pr['codigo_unidad_medida'] ?? 'KG';
 
                 if ($cantidad_pr > 0) {
-                    $desc_pr = DB::table('producto')->where('codigo', $codigo_pr)->value('descripcion');
+                    $desc_pr = DB::table('producto')->where('codigo', $codigo_pr)->value('descripcion') ?? $codigo_pr;
                     $lote_pr = $this->generarCodigoPEP($codigo_pr, null, $id);
+                    $costo_unitario_pr = $cantidad_pr > 0 ? round($costo_total_consumos / $cantidad_pr, 6) : 0;
+                    $totalEntradaPr = round($cantidad_pr * $costo_unitario_pr, 2);
+
+                    $invPr = DB::table('inventario')
+                        ->where('codigo_producto', $codigo_pr)
+                        ->where('codigo_almacen', $almacen_origen)
+                        ->where('lote', $lote_pr)
+                        ->first();
+
+                    if (!$invPr) {
+                        DB::table('inventario')->insert([
+                            'codigo_producto' => $codigo_pr,
+                            'codigo_almacen' => $almacen_origen,
+                            'lote' => $lote_pr,
+                            'stock_actual' => $cantidad_pr,
+                            'costo_promedio' => $costo_unitario_pr,
+                            'ultimo_costo' => $costo_unitario_pr,
+                            'stock_minimo' => 0,
+                            'stock_maximo' => 0,
+                            'estado' => 1,
+                            'fecha_ultimo_movimiento' => $fecha_movimiento_general,
+                            'usuario_ultimo_movimiento' => $usuario_id
+                        ]);
+                    } else {
+                        $saldoAnt = $invPr->stock_actual ?? 0;
+                        $costoPromAnt = $invPr->costo_promedio ?? 0;
+                        $nuevoSaldo = $saldoAnt + $cantidad_pr;
+                        $nuevoTotalSaldo = ($saldoAnt * $costoPromAnt) + $totalEntradaPr;
+                        $nuevoCostoProm = $nuevoSaldo > 0 ? round($nuevoTotalSaldo / $nuevoSaldo, 6) : 0;
+
+                        DB::table('inventario')
+                            ->where('id_inventario', $invPr->id_inventario)
+                            ->update([
+                                'stock_actual' => $nuevoSaldo,
+                                'costo_promedio' => $nuevoCostoProm,
+                                'fecha_ultimo_movimiento' => $fecha_movimiento_general,
+                                'usuario_ultimo_movimiento' => $usuario_id
+                            ]);
+                    }
+
+                    $stockTotalAlmacenPr = DB::table('inventario')
+                        ->where('codigo_producto', $codigo_pr)
+                        ->where('codigo_almacen', $almacen_origen)
+                        ->sum('stock_actual') ?? 0;
+
+                    $numeroDocPr = "OP-{$idop}-PROC-{$id}";
+
+                    $movPrId = DB::table('movimientos_inventario')->insertGetId([
+                        'codigo_almacen' => $almacen_origen,
+                        'codigo_producto' => $codigo_pr,
+                        'lote' => $lote_pr,
+                        'tipo_movimiento' => 'INGRESO',
+                        'cantidad' => $cantidad_pr,
+                        'costo_unitario' => $costo_unitario_pr,
+                        'total' => $totalEntradaPr,
+                        'documento_referencia' => 'PRODUCCION',
+                        'numero_referencia' => $numeroDocPr,
+                        'idop' => $idop,
+                        'observaciones' => "Ingreso directo de producto manual OP-{$idop} Proceso {$id}",
+                        'usuario_movimiento' => $usuario_id,
+                        'fecha_movimiento' => $fecha_movimiento_general,
+                        'estado' => 1,
+                        'tiene_kardex' => true
+                    ]);
+
+                    DB::table('kardex')->insert([
+                        'codigo_producto' => $codigo_pr,
+                        'codigo_almacen' => $almacen_origen,
+                        'lote' => $lote_pr,
+                        'fecha_movimiento' => $fecha_movimiento_general,
+                        'tipo_movimiento' => 'INGRESO',
+                        'documento' => 'RECEPCION_PEP',
+                        'numero_documento' => $numeroDocPr,
+                        'cantidad_entrada' => $cantidad_pr,
+                        'costo_entrada' => $costo_unitario_pr,
+                        'total_entrada' => $totalEntradaPr,
+                        'cantidad_salida' => 0,
+                        'costo_salida' => 0,
+                        'total_salida' => 0,
+                        'cantidad_saldo' => $stockTotalAlmacenPr,
+                        'costo_promedio' => $costo_unitario_pr,
+                        'total_saldo' => round($stockTotalAlmacenPr * $costo_unitario_pr, 6),
+                        'codigo_referencia_movimiento' => $movPrId,
+                        'observaciones' => "Ingreso directo de producto manual OP-{$idop}",
+                        'usuario_registro' => $usuario_id
+                    ]);
 
                     DB::table('produccion_ingresos_proceso')->insert([
                         'idop' => $idop,
@@ -1391,10 +1687,11 @@ class OrdenProcesoController extends Controller
                         'descripcion_producto_proceso' => $desc_pr,
                         'cantidad' => $cantidad_pr,
                         'codigo_unidad_medida' => $unidad_pr,
-                        'codigo_almacen' => 'ALM-PEP',
+                        'codigo_almacen' => $almacen_origen,
                         'lote_produccion' => $lote_pr,
                         'fecha_ingreso' => $fecha_movimiento_general,
                         'usuario_registro' => $usuario_id,
+                        'estado' => 'APROBADO',
                         'codigo_molde' => $codigo_molde_op,
                         'descripcion_molde' => $descripcion_molde_op
                     ]);
@@ -1457,6 +1754,11 @@ class OrdenProcesoController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            $orden = OrdenProduccion::findOrFail($idop);
+            if ($orden->estado === 'COMPLETADO' || $orden->activo == 0) {
+                throw new \Exception("No se pueden modificar componentes en una orden " . ($orden->activo == 0 ? 'ANULADA' : 'COMPLETADA') . ".");
+            }
+
             $proceso = OrdenProceso::findOrFail($id);
             if ($proceso->estado_avance === 'COMPLETADO') {
                 throw new \Exception("No se puede modificar un componente de un proceso COMPLETADO.");
@@ -1464,6 +1766,7 @@ class OrdenProcesoController extends Controller
 
             if ($componente->codigo_tipo_producto === 'ACT') {
                 $componente->update([
+                    'cantidad' => $request->has('cantidad') ? floatval($request->cantidad) : $componente->cantidad,
                     'codigo_trabajador' => $request->codigo_trabajador,
                     'descripcion_trabajador' => $request->codigo_trabajador
                         ? DB::table('trabajador')->where('codigo', $request->codigo_trabajador)->value('nombre')
@@ -1484,22 +1787,6 @@ class OrdenProcesoController extends Controller
             $nuevaCantidad = floatval($request->cantidad);
             $originalCantidad = floatval($componente->cantidad);
             $diferencia = $nuevaCantidad - $originalCantidad;
-
-            $proceso = DB::table('orden_proceso')->where('id', $id)->first();
-            if ($proceso && $proceso->codigo_proceso == '17' && $componente->codigo_tipo_producto !== 'ACT') {
-                $orden = DB::table('orden_produccion_global')->where('idop', $idop)->first();
-                $peso_neto = max(0, floatval($orden->cantidad) - floatval($orden->tara));
-                $cantidad_existente = DB::table('componentes_orden_produccion_global')
-                    ->where('idop', $idop)
-                    ->where('id_proceso', $id)
-                    ->where('estado', 1)
-                    ->where('codigo_tipo_producto', '!=', 'ACT')
-                    ->sum('cantidad') ?? 0;
-                
-                if (round($cantidad_existente + $diferencia, 2) > round($peso_neto, 2)) {
-                    throw new \Exception("La suma de las cantidades (" . number_format($cantidad_existente + $diferencia, 2) . " KG) supera el Peso Neto (" . number_format($peso_neto, 2) . " KG). Actualice la cantidad a registrar.");
-                }
-            }
 
             $movimientosOrigen = DB::table('movimientos_inventario')
                 ->where('componente_origen_id', $id_componente)
@@ -1531,7 +1818,7 @@ class OrdenProcesoController extends Controller
             $codigo_producto = $componente->codigo_producto;
             $numero_referencia = $movimientosOrigen->first()->numero_referencia;
             $idop = $componente->idop;
-            $usuario_id = Auth::user()->id_usuario ?? 5;
+            $usuario_id = Auth::id();
 
             $pepGenerado = DB::table('produccion_ingresos_proceso')
                 ->where('id_proceso', $id)
@@ -1966,12 +2253,17 @@ class OrdenProcesoController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            $orden = OrdenProduccion::findOrFail($idop);
+            if ($orden->estado === 'COMPLETADO' || $orden->activo == 0) {
+                throw new \Exception("No se pueden eliminar componentes en una orden " . ($orden->activo == 0 ? 'ANULADA' : 'COMPLETADA') . ".");
+            }
+
             $proceso = OrdenProceso::findOrFail($id);
             if ($proceso->estado_avance === 'COMPLETADO') {
                 throw new \Exception("No se puede eliminar un componente de un proceso COMPLETADO.");
             }
 
-            $usuario_id = Auth::user()->id_usuario ?? 1;
+            $usuario_id = Auth::id();
 
             if ($componente->codigo_tipo_producto !== 'ACT') {
                 $movimientos = DB::table('movimientos_inventario')
@@ -2197,6 +2489,57 @@ class OrdenProcesoController extends Controller
         return null;
     }
 
+    private function determinarCodigoRecuperado($codigo_pep, $codigo_formula = null, $tipo_operacion = null)
+    {
+        if (empty($codigo_pep)) return null;
+
+        // 1. Merma Empaque (Troquelado)
+        if ($tipo_operacion === 'merma_empaque') {
+            return 'MER-EMP-' . $codigo_pep;
+        }
+
+        // 2. Merma Clip (Troquelado)
+        if ($tipo_operacion === 'merma_clip') {
+            return 'REC-' . $codigo_pep;
+        }
+
+        // 3. Recuperado para Moler o Limpieza (Material en bruto para molienda) -> Siempre debe ir al producto REC-
+        if ($tipo_operacion === 'recuperado_molido' || $tipo_operacion === 'limpieza') {
+            return 'REC-' . $codigo_pep;
+        }
+
+        // 2. Molido de Máquina (Material ya triturado al pie de máquina) -> Debe ir al producto MO...
+        if ($tipo_operacion === 'recuperado_maquina') {
+            if (str_starts_with($codigo_pep, 'CA')) {
+                $codigoMo = 'MO' . substr($codigo_pep, 2);
+                if (DB::table('producto')->where('codigo', $codigoMo)->where('estado', 1)->exists()) {
+                    return $codigoMo;
+                }
+            }
+
+            if ($codigo_formula) {
+                $recFormula = DB::table('formula_produccion')->where('codigo', $codigo_formula)->value('codigo_material_reciclado');
+                if ($recFormula && DB::table('producto')->where('codigo', $recFormula)->where('estado', 1)->exists()) {
+                    return $recFormula;
+                }
+            }
+
+            if (str_starts_with($codigo_pep, 'CA')) {
+                return 'MO' . substr($codigo_pep, 2);
+            }
+        }
+
+        // 3. Fallback general:
+        if (str_starts_with($codigo_pep, 'CA')) {
+            $codigoMo = 'MO' . substr($codigo_pep, 2);
+            if (DB::table('producto')->where('codigo', $codigoMo)->where('estado', 1)->exists()) {
+                return $codigoMo;
+            }
+        }
+
+        return 'REC-' . $codigo_pep;
+    }
+
     private function generarCodigoPEP($codigo, $color, $proceso_id) {
         $base = $codigo . '-' . ($color ?: 'SC') . '-P' . $proceso_id . '-' . date('YmdHis');
         return substr(preg_replace('/[^A-Za-z0-9\-]/', '', $base), 0, 45);
@@ -2207,7 +2550,7 @@ class OrdenProcesoController extends Controller
         try {
             DB::beginTransaction();
 
-            $usuario_id = Auth::user()->id_usuario ?? 5;
+            $usuario_id = Auth::id();
             $batch_id = mt_rand(1000, 9999);
 
             $tipo_operacion = $request->input('tipo_operacion', 'inyectado'); 
@@ -2221,29 +2564,40 @@ class OrdenProcesoController extends Controller
             $hora_fin = $request->input('hora_fin');
             $codigo_almacen_consumo = $request->input('codigo_almacen_consumo');
 
+            $orden = OrdenProduccion::findOrFail($idop);
+            if ($orden->estado === 'COMPLETADO' || $orden->activo == 0) {
+                throw new \Exception("No se pueden registrar componentes en una orden " . ($orden->activo == 0 ? 'ANULADA' : 'COMPLETADA') . ".");
+            }
+
             $proceso = OrdenProceso::findOrFail($id);
             if ($proceso->estado_avance === 'COMPLETADO') {
                 throw new \Exception("No se pueden registrar componentes en un proceso COMPLETADO.");
             }
 
-            if ($proceso->codigo_proceso == '17') {
-                $orden = DB::table('orden_produccion_global')->where('idop', $idop)->first();
-                $peso_neto = max(0, floatval($orden->cantidad) - floatval($orden->tara));
-                $cantidad_existente = DB::table('componentes_orden_produccion_global')
-                    ->where('idop', $idop)
-                    ->where('id_proceso', $id)
-                    ->where('estado', 1)
-                    ->where('codigo_tipo_producto', '!=', 'ACT')
-                    ->sum('cantidad') ?? 0;
-                
-                if (round($cantidad_existente + $cantidad_total, 2) > round($peso_neto, 2)) {
-                    throw new \Exception("La suma de las cantidades (" . number_format($cantidad_existente + $cantidad_total, 2) . " KG) supera el Peso Neto (" . number_format($peso_neto, 2) . " KG). Actualice la cantidad a registrar.");
-                }
+            // Actualizar campos de cabecera en orden_proceso si vienen en el request
+            $updateProcesoData = [];
+            if ($request->has('inyectada_inicial')) {
+                $valIni = $request->input('inyectada_inicial');
+                $updateProcesoData['inyectada_inicial'] = ($valIni !== null && $valIni !== '') ? intval($valIni) : null;
+            }
+            if ($request->has('inyectada_final')) {
+                $valFin = $request->input('inyectada_final');
+                $updateProcesoData['inyectada_final'] = ($valFin !== null && $valFin !== '') ? intval($valFin) : null;
+            }
+            if ($request->has('tiempo_ciclo')) {
+                $valCiclo = $request->input('tiempo_ciclo');
+                $updateProcesoData['tiempo_ciclo'] = ($valCiclo !== null && $valCiclo !== '') ? intval($valCiclo) : null;
+            }
+            if (!empty($updateProcesoData)) {
+                $proceso->update($updateProcesoData);
             }
 
             $componentes_a_insertar = [];
             
-            if (in_array($tipo_operacion, ['merma_clip', 'recuperado_clip', 'merma_cascara'])) {
+            $colores_seleccionados = $request->input('colores_seleccionados', []);
+            $es_merma_directa = in_array($tipo_operacion, ['recuperado_clip', 'merma_cascara', 'merma_carton']) || ($tipo_operacion === 'merma_clip' && $proceso->codigo_proceso != '17');
+
+            if ($es_merma_directa) {
                 // Registro directo de inventario (sin fórmula)
                 $producto = DB::table('producto')->where('codigo', $codigo_formula)->first();
                 if (!$producto) throw new \Exception("Producto no encontrado en la base de datos.");
@@ -2259,6 +2613,90 @@ class OrdenProcesoController extends Controller
                 $codigo_formula = null; // Important: Clear so it doesn't fail foreign key constraint on formula_produccion
                 
                 $extraCantReciclado = 0;
+            } elseif ($tipo_operacion === 'encartonado') {
+                if (!is_array($colores_seleccionados) || count($colores_seleccionados) !== 4) {
+                    throw new \Exception("Debe seleccionar exactamente 4 colores para el proceso de encartonado.");
+                }
+
+                $request_formula = new Request();
+                $request_formula->merge([
+                    'codigo_formula' => $codigo_formula,
+                    'codigo_molde' => $codigo_molde,
+                    'codigo_almacen' => $codigo_almacen_consumo
+                ]);
+                $response = $this->getFormulaComponents($request_formula);
+                $formula_data = json_decode($response->getContent(), true);
+
+                if (!isset($formula_data['success']) || !$formula_data['success']) {
+                    throw new \Exception("No se pudo obtener la fórmula de encartonado: " . ($formula_data['message'] ?? ''));
+                }
+
+                $componentes_formula = $formula_data['componentes'];
+                $compGancho = null;
+                $compCarton = null;
+
+                foreach ($componentes_formula as $comp) {
+                    $codigoProd = $comp['codigo_producto'];
+                    $tipoProd = $comp['codigo_tipo_producto'] ?? '';
+                    if ($tipoProd === 'PEP' || str_starts_with($codigoProd, 'EN') || str_starts_with($codigoProd, 'CA')) {
+                        $compGancho = $comp;
+                    } elseif ($tipoProd === 'AUX' || str_starts_with($codigoProd, '01.20.004') || str_contains(strtoupper($comp['descripcion_producto'] ?? ''), 'CARTON')) {
+                        $compCarton = $comp;
+                    }
+                }
+
+                if (!$compGancho) {
+                    $compGancho = $componentes_formula[0] ?? null;
+                }
+                if (!$compCarton && count($componentes_formula) > 1) {
+                    $compCarton = $componentes_formula[1] ?? null;
+                }
+
+                $pesoGanchoNominal = floatval($compGancho['cantidad_nominal'] ?? 139.44);
+                $pesoCartonNominal = floatval($compCarton['cantidad_nominal'] ?? 14.20);
+                $pesoTotalNominal = $pesoGanchoNominal + $pesoCartonNominal;
+
+                $pesoTotalGanchosKG = $pesoTotalNominal > 0 ? ($cantidad_total * ($pesoGanchoNominal / $pesoTotalNominal)) : ($cantidad_total * 0.90);
+                $pesoTotalCartonKG = $pesoTotalNominal > 0 ? ($cantidad_total * ($pesoCartonNominal / $pesoTotalNominal)) : ($cantidad_total * 0.10);
+
+                // Suffix del modelo de gancho (.A para paleta, .C para chupón, .B para animalito)
+                $suffix = '.A';
+                if (str_contains($codigo_formula, 'CHUPON') || (isset($compGancho['codigo_producto']) && str_ends_with($compGancho['codigo_producto'], '.C'))) {
+                    $suffix = '.C';
+                } elseif (str_contains($codigo_formula, 'ANIMAL') || (isset($compGancho['codigo_producto']) && str_ends_with($compGancho['codigo_producto'], '.B'))) {
+                    $suffix = '.B';
+                }
+
+                $pesoPorColor = round($pesoTotalGanchosKG / 4, 4);
+
+                foreach ($colores_seleccionados as $colorCod) {
+                    $codGanchoColor = "EN07-{$colorCod}{$suffix}";
+                    $existeProd = DB::table('producto')->where('codigo', $codGanchoColor)->exists();
+                    if (!$existeProd) {
+                        $fallbackProd = DB::table('producto')->where('codigo', 'LIKE', "EN07-{$colorCod}%")->value('codigo');
+                        if ($fallbackProd) {
+                            $codGanchoColor = $fallbackProd;
+                        }
+                    }
+
+                    $componentes_a_insertar[] = [
+                        'codigo_producto' => $codGanchoColor,
+                        'cantidad' => $pesoPorColor,
+                        'codigo_unidad_medida' => 'KG',
+                        'codigo_molde' => $compGancho['codigo_molde'] ?? $codigo_molde,
+                        'codigo_tipo_producto' => 'PEP'
+                    ];
+                }
+
+                if ($compCarton) {
+                    $componentes_a_insertar[] = [
+                        'codigo_producto' => $compCarton['codigo_producto'],
+                        'cantidad' => round($pesoTotalCartonKG, 4),
+                        'codigo_unidad_medida' => 'KG',
+                        'codigo_molde' => null,
+                        'codigo_tipo_producto' => 'AUX'
+                    ];
+                }
             } else {
                 // 1. Obtener los componentes de la fórmula
                 $request_formula = new Request();
@@ -2276,10 +2714,10 @@ class OrdenProcesoController extends Controller
 
                 $componentes_formula = $formula_data['componentes'];
                 
-                // Si es Molido o Ensamblado o Limpieza, necesitamos el peso total para sacar proporción (KG)
+                // Si es Molido o Ensamblado o Limpieza / Purga, necesitamos el peso total para sacar proporción (KG)
                 $pesoTotalFormula = 0;
                 $es_ensamblado_molido = in_array($tipo_operacion, ['recuperado_molido', 'recuperado_maquina', 'ensamblado']) || ($proceso->codigo_proceso == '10'); // 10 = ensamblado
-                $es_limpieza = ($tipo_operacion === 'limpieza');
+                $es_limpieza = in_array($tipo_operacion, ['limpieza', 'purga']);
                 
                 // Primer pase: Filtrar y calcular el peso total de los componentes que quedan
                 $componentes_a_procesar = [];
@@ -2364,6 +2802,33 @@ class OrdenProcesoController extends Controller
                             'codigo_tipo_producto' => $comp['codigo_tipo_producto']
                         ];
                     }
+                }
+
+                // Si la cantidad total es 0 (ej. Limpieza, Purga, Ciclado en vacío), insertar registro representativo con 0 KG
+                if ($cantidad_total == 0 && empty($componentes_a_insertar)) {
+                    $prodCodigo = $codigo_formula;
+                    $prodTipo = 'MTP';
+                    $prodUM = 'KG';
+                    if (!empty($componentes_formula) && isset($componentes_formula[0])) {
+                        $prodCodigo = $componentes_formula[0]['codigo_producto'];
+                        $prodTipo = $componentes_formula[0]['codigo_tipo_producto'] ?? 'MTP';
+                        $prodUM = $componentes_formula[0]['codigo_unidad_medida'] ?? 'KG';
+                    } elseif ($codigo_formula) {
+                        $prodObj = DB::table('producto')->where('codigo', $codigo_formula)->first();
+                        if ($prodObj) {
+                            $prodCodigo = $prodObj->codigo;
+                            $prodTipo = $prodObj->codigo_tipo_producto ?? 'MTP';
+                            $prodUM = $prodObj->codigo_unidad_medida ?? 'KG';
+                        }
+                    }
+
+                    $componentes_a_insertar[] = [
+                        'codigo_producto' => $prodCodigo ?? $codigo_formula,
+                        'cantidad' => 0,
+                        'codigo_unidad_medida' => $prodUM,
+                        'codigo_molde' => $codigo_molde,
+                        'codigo_tipo_producto' => $prodTipo
+                    ];
                 }
 
                 if ($extraCantReciclado > 0 && !empty($formula_data["codigo_material_reciclado"])) {

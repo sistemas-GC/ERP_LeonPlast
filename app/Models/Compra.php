@@ -28,7 +28,9 @@ class Compra extends Model
     'usuario_creacion',
     'usuario_aprobacion',
     'id_guia_remision_compra',
-    'igv_incluido'
+    'igv_incluido',
+    'condicion_pago',
+    'fecha_vencimiento'
 ];
 
     public function datosProveedor()
@@ -39,6 +41,11 @@ class Compra extends Model
     public function detalles()
     {
         return $this->hasMany(DetalleCompra::class, 'id_compra', 'id_compra');
+    }
+
+    public function cuotas()
+    {
+        return $this->hasMany(CompraCuota::class, 'id_compra', 'id_compra')->orderBy('numero_cuota');
     }
 
     public function guias()

@@ -11,16 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('transferencias_almacen_detalle', function (Blueprint $table) {
-            $table->id('id_detalle');
-            $table->unsignedBigInteger('id_transferencia');
-            $table->string('codigo_producto', 20)->collation('utf8mb4_general_ci');
-            $table->string('lote', 50)->nullable();
-            $table->decimal('cantidad', 10, 4);
-            $table->timestamps();
+        if (!Schema::hasTable('transferencias_almacen_detalle')) {
+            Schema::create('transferencias_almacen_detalle', function (Blueprint $table) {
+                $table->id('id_detalle');
+                $table->unsignedBigInteger('id_transferencia');
+                $table->string('codigo_producto', 20);
+                $table->string('lote', 50)->nullable();
+                $table->decimal('cantidad', 10, 4);
+                $table->timestamps();
 
-            $table->foreign('id_transferencia')->references('id_transferencia')->on('transferencias_almacen')->onDelete('cascade');
-        });
+                $table->foreign('id_transferencia')->references('id_transferencia')->on('transferencias_almacen')->onDelete('cascade');
+            });
+        }
     }
 
     /**
