@@ -452,9 +452,14 @@
         const menuInventario = document.getElementById('menuInventario');
         const iconInventario = document.getElementById('iconInventario');
 
-        const inventarioSlugs = ['/inventario', 'recepciones', 'ajuste', 'extornos', 'alertas', 'despachos', 'transferencias'];
+        const inventarioSlugs = ['recepciones', 'ajuste', 'extornos', 'alertas', 'despachos'];
+        const isInventarioUrl = (
+            inventarioSlugs.some(slug => currentUrl.includes(slug)) ||
+            (currentUrl.includes('transferencias') && !currentUrl.includes('produccion')) ||
+            (currentUrl.includes('/inventario') && !currentUrl.includes('kardex'))
+        ) && !currentUrl.includes('/produccion') && !currentUrl.includes('produccion/');
 
-        if (inventarioSlugs.some(slug => currentUrl.includes(slug)) && !currentUrl.includes('kardex')) {
+        if (isInventarioUrl) {
             menuInventario?.classList.remove('hidden');
             menuInventario?.classList.add('flex');
             iconInventario?.classList.add('rotate-180');
@@ -474,8 +479,9 @@
         const iconProduccion = document.getElementById('iconProduccion');
 
         const produccionSlugs = ['ordenes', 'requerimientos-materiales', 'rutas-produccion', 'mermas', 'ingresos'];
+        const isProduccionUrl = currentUrl.includes('/produccion') || currentUrl.includes('produccion/') || produccionSlugs.some(slug => currentUrl.includes(slug));
 
-        if (produccionSlugs.some(slug => currentUrl.includes(slug))) {
+        if (isProduccionUrl) {
             menuProduccion?.classList.remove('hidden');
             menuProduccion?.classList.add('flex');
             iconProduccion?.classList.add('rotate-180');
