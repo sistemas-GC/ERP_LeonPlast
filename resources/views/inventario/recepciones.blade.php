@@ -123,10 +123,28 @@
                         <div id="compra-{{ $compra->id_compra }}" class="hidden border-t bg-slate-50">
                             <form action="{{ route('inventario.procesar_recepcion', $compra->id_compra) }}" method="POST" class="p-6">
                                 @csrf
-                                <div class="flex justify-end mb-4">
-                                    <div class="flex items-center gap-3 bg-white border border-slate-200 px-4 py-2 rounded-xl">
-                                        <label class="text-xs font-bold text-slate-600 uppercase">Fecha Ingreso a Almacén:</label>
-                                        <input type="date" name="fecha_ingreso" value="{{ date('Y-m-d') }}" class="border-none focus:ring-0 text-sm font-bold text-slate-800 bg-transparent" required max="{{ date('Y-m-d') }}">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-end gap-3 mb-4">
+                                    <!-- Almacén de Destino (Global para la recepción) -->
+                                    <div class="flex items-center gap-2.5 bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-2xs">
+                                        <label class="text-xs font-bold text-slate-700 uppercase whitespace-nowrap flex items-center gap-1.5">
+                                            <i class="fas fa-warehouse text-emerald-600"></i> Almacén de destino:
+                                        </label>
+                                        <select name="codigo_almacen_destino" class="border-none focus:ring-0 text-xs font-bold text-slate-800 bg-transparent pr-7 py-0.5 cursor-pointer select-almacen-destino-global" required onchange="sincronizarAlmacenDestino(this, 'compra-{{ $compra->id_compra }}')">
+                                            <option value="">Seleccione destino...</option>
+                                            @foreach($almacenes as $almacen)
+                                                <option value="{{ $almacen->codigo_almacen }}" {{ $almacen->codigo_almacen === 'ALM03' ? 'selected' : '' }}>
+                                                    {{ $almacen->descripcion }} ({{ $almacen->codigo_almacen }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+
+                                    <!-- Fecha Ingreso a Almacén -->
+                                    <div class="flex items-center gap-2.5 bg-white border border-slate-200 px-3.5 py-2 rounded-xl shadow-2xs">
+                                        <label class="text-xs font-bold text-slate-700 uppercase whitespace-nowrap flex items-center gap-1.5">
+                                            <i class="fas fa-calendar-check text-blue-600"></i> Fecha Ingreso a Almacén:
+                                        </label>
+                                        <input type="date" name="fecha_ingreso" value="{{ date('Y-m-d') }}" class="border-none focus:ring-0 text-xs font-bold text-slate-800 bg-transparent py-0.5 cursor-pointer" required max="{{ date('Y-m-d') }}">
                                     </div>
                                 </div>
                                 <div class="space-y-4">
@@ -142,15 +160,17 @@
                                             </div>
 
                                             <div class="lg:col-span-2">
-                                                <label class="block text-xs font-semibold text-slate-500 mb-1">Almacén</label>
-                                                <select name="items[{{ $detalle->id_detalle_compra }}][codigo_almacen]" class="w-full rounded-xl border border-slate-300 px-2 py-2.5 text-sm focus:ring-2 focus:ring-primary" required>
-                                                    <option value="">Seleccione...</option>
-                                                    @foreach($almacenes as $almacen)
-                                                        <option value="{{ $almacen->codigo_almacen }}" {{ $detalle->codigo_almacen == $almacen->codigo_almacen ? 'selected' : '' }}>
-                                                            {{ $almacen->descripcion }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
+                                                <label class="block text-xs font-semibold text-slate-500 mb-1">Almacén origen</label>
+                                                @php
+                                                    $almOrigenObj = $almacenes->firstWhere('codigo_almacen', $detalle->codigo_almacen);
+                                                    $nombreAlmOrigen = $almOrigenObj ? $almOrigenObj->descripcion : ($detalle->codigo_almacen ?? 'ALM04');
+                                                @endphp
+                                                <div class="bg-slate-100/90 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-700 truncate" title="{{ $nombreAlmOrigen }} ({{ $detalle->codigo_almacen }})">
+                                                    <i class="fas fa-sign-out-alt text-slate-400 mr-1"></i>
+                                                    {{ $nombreAlmOrigen }}
+                                                </div>
+                                                <input type="hidden" name="items[{{ $detalle->id_detalle_compra }}][codigo_almacen_origen]" value="{{ $detalle->codigo_almacen }}">
+                                                <input type="hidden" name="items[{{ $detalle->id_detalle_compra }}][codigo_almacen]" class="item-almacen-destino" value="{{ $detalle->codigo_almacen !== 'ALM04' ? $detalle->codigo_almacen : 'ALM03' }}">
                                             </div>
 
                                             <div class="lg:col-span-1">
@@ -344,5 +364,23 @@ function toggleAccordion(id) {
     content.classList.toggle('hidden');
     if (icon) icon.classList.toggle('rotate-180');
 }
+
+function sincronizarAlmacenDestino(selectEl, containerId) {
+    const contenedor = document.getElementById(containerId);
+    if (!contenedor) return;
+    const destinoVal = selectEl.value;
+    contenedor.querySelectorAll('.item-almacen-destino').forEach(input => {
+        input.value = destinoVal;
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.select-almacen-destino-global').forEach(select => {
+        const form = select.closest('form');
+        if (form && select.value) {
+            form.querySelectorAll('.item-almacen-destino').forEach(input => input.value = select.value);
+        }
+    });
+});
 </script>
 @endsection

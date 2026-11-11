@@ -730,7 +730,7 @@ class MermaController extends Controller
         return view('mermas.detalle', compact('merma', 'movimientos'));
     }
 
-    public function reportePdf($idop)
+    public function reportePdf(Request $request, $idop)
     {
         $op = DB::table('orden_produccion_global')->where('idop', $idop)->first();
         
@@ -887,13 +887,17 @@ class MermaController extends Controller
 
         foreach ($actividades as $act) {
             $fechaObj = \Carbon\Carbon::parse($act->fecha_inicio . ' ' . $act->hora_inicio);
+            $motivoAct = (!empty($act->numero_ot) ? '[OT: ' . $act->numero_ot . '] ' : '') . ($act->descripcion_producto ?? 'Registro Manual');
+            if (!empty($act->observacion)) {
+                $motivoAct .= ' (' . $act->observacion . ')';
+            }
             $registros->push((object)[
                 'fecha' => \Carbon\Carbon::parse($act->fecha_inicio)->format('Y-m-d'),
                 'hora_inicio' => \Carbon\Carbon::parse($act->hora_inicio)->format('H:i'),
                 'hora_fin' => \Carbon\Carbon::parse($act->hora_fin)->format('H:i'),
                 'trabajador_nombre' => $act->descripcion_trabajador ?? '-',
                 'cantidad' => $act->cantidad,
-                'motivo' => $act->descripcion_producto ?? 'Registro Manual',
+                'motivo' => $motivoAct,
                 'tipo' => 'ACTIVIDAD',
                 'color' => '-',
                 'timestamp' => $fechaObj->timestamp
@@ -912,6 +916,11 @@ class MermaController extends Controller
         ];
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('mermas.pdf.reporte', $data)->setPaper('a4', 'landscape');
-        return $pdf->download('Reporte_Produccion_OP_'.$op->codigo_op.'.pdf');
+
+        if ($request->has('download') && $request->input('download') == '1') {
+            return $pdf->download('Reporte_Produccion_OP_'.$op->codigo_op.'.pdf');
+        }
+
+        return $pdf->stream('Reporte_Produccion_OP_'.$op->codigo_op.'.pdf', ['Attachment' => false]);
     }
 }

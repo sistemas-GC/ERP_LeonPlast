@@ -2,77 +2,84 @@
 @section('title', 'Detalle de Compra #' . $compra->serie_documento . '-' . $compra->numero_documento)
 
 @section('content')
-<div class="container mx-auto px-4 py-6 max-w-7xl">
+<div class="container mx-auto pb-8 md:pb-10">
     
-    <div class="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-            <div class="flex items-center gap-3">
-                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">
-                    {{ $compra->tipo_documento }}: {{ $compra->serie_documento }}-{{ $compra->numero_documento }}
-                </h1>
+    <x-page-header title="{{ $compra->tipo_documento }}: {{ $compra->serie_documento }}-{{ $compra->numero_documento }}" subtitle="Registrado el {{ \Carbon\Carbon::parse($compra->fecha_creacion)->format('d/m/Y H:i') }}">
+        <x-slot:actions>
+            <div class="flex items-center gap-2">
                 @switch($compra->estado)
-                    @case('PENDIENTE') <x-badge color="amber">{{ $compra->estado }}</x-badge> @break
-                    @case('CANCELADA') <x-badge color="red">{{ $compra->estado }}</x-badge> @break
-                    @default <x-badge color="green">{{ $compra->estado }}</x-badge>
+                    @case('PENDIENTE')
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse"></span> PENDIENTE
+                        </span>
+                        @break
+                    @case('CANCELADA')
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-red-50 text-red-800 border border-red-200">
+                            <span class="w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5"></span> ANULADA
+                        </span>
+                        @break
+                    @default
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span> RECIBIDA
+                        </span>
                 @endswitch
-            </div>
-            <p class="text-sm text-slate-500 mt-1">Registrado el {{ \Carbon\Carbon::parse($compra->fecha_creacion)->format('d/m/Y H:i') }}</p>
-        </div>
-        <div class="flex gap-2">
-            <a href="{{ route('compras.index') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
-                <i class="fas fa-arrow-left"></i> Volver
-            </a>
-            <button onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-700 transition-all shadow-sm">
-                <i class="fas fa-print"></i> Imprimir
-            </button>
-        </div>
-    </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <a href="{{ route('compras.index') }}" class="btn-secondary">
+                    <i class="fas fa-arrow-left"></i>
+                    <span class="hidden sm:inline ml-1">Volver</span>
+                </a>
+                <button onclick="window.print()" class="inline-flex items-center justify-center px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-semibold hover:bg-slate-700 transition shadow-xs">
+                    <i class="fas fa-print mr-1.5"></i> Imprimir
+                </button>
+            </div>
+        </x-slot:actions>
+    </x-page-header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         <div class="lg:col-span-2 space-y-6">
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="bg-slate-50/50 border-b border-slate-100 px-6 py-4">
-                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
-                        <i class="fas fa-file-invoice text-primary"></i> Información del Documento
+            <div class="bg-white rounded-xl shadow-md border border-slate-200/80 overflow-hidden">
+                <div class="bg-slate-50/70 border-b border-slate-100 px-6 py-3.5">
+                    <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                        <i class="fas fa-file-invoice text-emerald-600 text-sm"></i> 1. Información del Documento
                     </h2>
                 </div>
                 <div class="p-6">
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
                         <div class="col-span-2 sm:col-span-1">
-                            <p class="text-xs font-bold text-slate-400 uppercase">Proveedor</p>
-                            <p class="text-sm font-semibold text-slate-800">{{ $compra->proveedor }}</p>
-                            <p class="text-xs text-slate-500">RUC: {{ $compra->ruc_proveedor }}</p>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Proveedor</p>
+                            <p class="text-sm font-bold text-slate-800 mt-0.5">{{ $compra->proveedor }}</p>
+                            <p class="text-xs text-slate-500 font-mono mt-0.5">RUC: {{ $compra->ruc_proveedor }}</p>
                         </div>
                         <div>
-                            <p class="text-xs font-bold text-slate-400 uppercase">Fecha Emisión</p>
-                            <p class="text-sm font-semibold text-slate-800">{{ \Carbon\Carbon::parse($compra->fecha_compra)->format('d/m/Y') }}</p>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Fecha Emisión</p>
+                            <p class="text-sm font-bold text-slate-800 mt-0.5">{{ \Carbon\Carbon::parse($compra->fecha_compra)->format('d/m/Y') }}</p>
                         </div>
                         <div>
-                            <p class="text-xs font-bold text-slate-400 uppercase">Condición</p>
-                            <div class="mt-0.5">
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Condición</p>
+                            <div class="mt-1">
                                 @if(($compra->condicion_pago ?? 'CONTADO') === 'CREDITO')
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                                        <i class="fas fa-clock text-[10px]"></i> Crédito
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                        <i class="fas fa-clock text-[9px] text-amber-600"></i> Crédito
                                     </span>
                                 @else
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-                                        <i class="fas fa-check-circle text-[10px] text-emerald-600"></i> Contado
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                        <i class="fas fa-check-circle text-[9px] text-emerald-600"></i> Contado
                                     </span>
                                 @endif
                             </div>
                         </div>
                         <div>
-                            <p class="text-xs font-bold text-slate-400 uppercase">Fecha Vencimiento</p>
-                            <p class="text-sm font-semibold text-slate-800">
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Fecha Vencimiento</p>
+                            <p class="text-sm font-bold text-slate-800 mt-0.5">
                                 {{ $compra->fecha_vencimiento ? \Carbon\Carbon::parse($compra->fecha_vencimiento)->format('d/m/Y') : '-' }}
                             </p>
                         </div>
                         <div>
-                            <p class="text-xs font-bold text-slate-400 uppercase">Moneda</p>
-                            <p class="text-sm font-semibold text-slate-800">{{ $compra->moneda ?? 'PEN' }}</p>
+                            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Moneda</p>
+                            <p class="text-sm font-bold text-slate-800 mt-0.5">{{ $compra->moneda ?? 'PEN' }}</p>
                             @if(($compra->moneda ?? 'PEN') === 'USD' && $compra->tipo_cambio)
-                                <p class="text-xs text-slate-500">T/C: {{ number_format($compra->tipo_cambio, 3) }}</p>
+                                <p class="text-xs text-slate-500 font-mono mt-0.5">T/C: {{ number_format($compra->tipo_cambio, 3) }}</p>
                             @endif
                         </div>
                     </div>
@@ -80,23 +87,23 @@
             </div>
 
             @if(($compra->condicion_pago ?? '') === 'CREDITO' && $compra->cuotas && $compra->cuotas->count() > 0)
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="bg-slate-50/50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
-                        <i class="fas fa-calendar-alt text-amber-500"></i> Cuotas de la Factura
+            <div class="bg-white rounded-xl shadow-md border border-slate-200/80 overflow-hidden">
+                <div class="bg-slate-50/70 border-b border-slate-100 px-6 py-3.5 flex items-center justify-between">
+                    <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                        <i class="fas fa-calendar-alt text-amber-500 text-sm"></i> Cuotas de la Factura
                     </h2>
-                    <span class="text-xs font-bold px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg">
+                    <span class="text-xs font-bold px-2.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-full">
                         {{ $compra->cuotas->count() }} {{ Str::plural('cuota', $compra->cuotas->count()) }}
                     </span>
                 </div>
-                <div class="p-4">
-                    <div class="overflow-x-auto rounded-lg border border-slate-200">
+                <div class="p-5">
+                    <div class="overflow-x-auto rounded-lg border border-slate-200 shadow-xs">
                         <table class="w-full text-left text-xs">
-                            <thead class="bg-slate-900 text-slate-200 uppercase text-[11px] font-bold">
+                            <thead class="bg-slate-800 text-white uppercase text-[11px] font-bold">
                                 <tr>
-                                    <th class="py-2.5 px-4 w-16 text-center border-r border-slate-800">N°</th>
-                                    <th class="py-2.5 px-4 border-r border-slate-800">Fecha de Vencimiento</th>
-                                    <th class="py-2.5 px-4 text-center border-r border-slate-800">Días para Vencer</th>
+                                    <th class="py-2.5 px-4 w-16 text-center border-r border-slate-700/60">N°</th>
+                                    <th class="py-2.5 px-4 border-r border-slate-700/60">Fecha de Vencimiento</th>
+                                    <th class="py-2.5 px-4 text-center border-r border-slate-700/60">Días para Vencer</th>
                                     <th class="py-2.5 px-4 text-right">Monto</th>
                                 </tr>
                             </thead>
@@ -153,10 +160,10 @@
             </div>
             @endif
 
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="bg-slate-50/50 border-b border-slate-100 px-6 py-4">
-                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
-                        <i class="fas fa-boxes text-primary"></i> Detalle de Items
+            <div class="bg-white rounded-xl shadow-md border border-slate-200/80 overflow-hidden">
+                <div class="bg-slate-50/70 border-b border-slate-100 px-6 py-3.5">
+                    <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                        <i class="fas fa-boxes text-emerald-600 text-sm"></i> 2. Detalle de Items y Productos
                     </h2>
                 </div>
                 <div class="overflow-x-auto">
@@ -171,11 +178,11 @@
                             <col class="w-[12%]">
                         </colgroup>
                         <thead>
-                            <tr class="bg-slate-900 text-[11px] uppercase text-slate-200 tracking-wider font-bold">
-                                <th class="p-2.5 font-bold border-r border-slate-800">Producto</th>
-                                <th class="p-2.5 font-bold text-center border-r border-slate-800">Almacén</th>
-                                <th class="p-2.5 font-bold text-center border-r border-slate-800">Lote</th>
-                                <th class="p-2.5 font-bold text-center border-r border-slate-800">Venc.</th>
+                            <tr class="bg-slate-800 text-[11px] uppercase text-white tracking-wider font-bold">
+                                <th class="p-2.5 font-bold border-r border-slate-700/60">Producto</th>
+                                <th class="p-2.5 font-bold text-center border-r border-slate-700/60">Almacén</th>
+                                <th class="p-2.5 font-bold text-center border-r border-slate-700/60">Lote</th>
+                                <th class="p-2.5 font-bold text-center border-r border-slate-700/60">Venc.</th>
                                 <th class="p-2.5 font-bold text-center border-r border-slate-800">Cant.</th>
                                 <th class="p-2.5 font-bold text-right border-r border-slate-800">P. Unit.</th>
                                 <th class="p-2.5 font-bold text-right">Total</th>

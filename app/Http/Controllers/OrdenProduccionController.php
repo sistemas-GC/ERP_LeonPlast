@@ -11,28 +11,55 @@ class OrdenProduccionController extends Controller
 {
     public function index(Request $request)
     {
-        $fecha_desde = $request->input('fecha_desde', now()->startOfMonth()->toDateString());
-        $fecha_hasta = $request->input('fecha_hasta', now()->endOfMonth()->toDateString());
+        $fecha_desde = $request->input('fecha_desde');
+        $fecha_hasta = $request->input('fecha_hasta');
+        $estado = $request->input('estado', 'activas');
 
-        $query = OrdenProduccion::with('productoProceso')
-            ->where('activo', 1)
-            ->whereDate('fecha', '>=', $fecha_desde)
-            ->whereDate('fecha', '<=', $fecha_hasta);
+        // Consulta base para aplicar filtros generales de fecha y búsqueda
+        $baseQuery = OrdenProduccion::where('activo', 1);
+
+        if ($request->filled('fecha_desde')) {
+            $baseQuery->whereDate('fecha', '>=', $fecha_desde);
+        }
+
+        if ($request->filled('fecha_hasta')) {
+            $baseQuery->whereDate('fecha', '<=', $fecha_hasta);
+        }
 
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('codigo_op', 'like', "%$search%")
-                  ->orWhere('descripcion_producto_proceso', 'like', "%$search%");
+            $baseQuery->where(function($q) use ($search) {
+                $q->where('codigo_op', 'like', "%{$search}%")
+                  ->orWhere('descripcion_producto_proceso', 'like', "%{$search}%");
             });
         }
 
-        $ordenes = $query->orderBy('fecha', 'asc')
-            ->orderBy('idop', 'asc')
+        // Conteos por pestaña (calculados dinámicamente según filtros activos)
+        $counts = [
+            'activas'    => (clone $baseQuery)->whereIn('estado', ['EN_PROCESO', 'PENDIENTE'])->count(),
+            'PENDIENTE'  => (clone $baseQuery)->where('estado', 'PENDIENTE')->count(),
+            'EN_PROCESO' => (clone $baseQuery)->where('estado', 'EN_PROCESO')->count(),
+            'COMPLETADO' => (clone $baseQuery)->where('estado', 'COMPLETADO')->count(),
+            'todas'      => (clone $baseQuery)->count(),
+        ];
+
+        // Aplicar filtro de estado para la lista de órdenes
+        $query = clone $baseQuery;
+
+        if ($estado === 'activas') {
+            $query->whereIn('estado', ['EN_PROCESO', 'PENDIENTE']);
+        } elseif (in_array($estado, ['PENDIENTE', 'EN_PROCESO', 'COMPLETADO', 'CANCELADO'])) {
+            $query->where('estado', $estado);
+        }
+        // Si $estado === 'todas', no se filtra por estado
+
+        $ordenes = $query->with('productoProceso')
+            ->orderBy('fecha', 'desc')
+            ->orderBy('idop', 'desc')
             ->paginate(15)
             ->appends($request->all());
 
-        return view('produccion.ordenes.index', compact('ordenes', 'fecha_desde', 'fecha_hasta'));
+        return view('produccion.ordenes.index', compact('ordenes', 'fecha_desde', 'fecha_hasta', 'estado', 'counts'));
     }
 
     public function create()
@@ -56,8 +83,8 @@ class OrdenProduccionController extends Controller
 
         $codigo_op_sugerido = $prefix . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
 
-        // Obtenemos productos de proceso para el select
-        $productos_proceso = \App\Models\ProductoProceso::orderBy('descripcion', 'asc')->get();
+        // Obtenemos productos de proceso activos para el select
+        $productos_proceso = \App\Models\ProductoProceso::where('estado', 1)->orderBy('descripcion', 'asc')->get();
         return view('produccion.ordenes.create', compact('productos_proceso', 'codigo_op_sugerido'));
     }
 

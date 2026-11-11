@@ -159,7 +159,7 @@
                                     <input type="text" class="w-full border border-slate-300 rounded-md text-xs text-center px-2 py-1.5 focus:border-primary focus:ring-1 focus:ring-primary uppercase shadow-xs" placeholder="Lote..." :name="`productos[${index}][lote]`" x-model="item.lote">
                                 </td>
                                 <td class="py-2 px-3">
-                                    <input type="date" class="w-full border border-slate-300 rounded-md text-xs text-center px-1.5 py-1.5 focus:border-primary focus:ring-1 focus:ring-primary shadow-xs" :name="`productos[${index}][fecha_vencimiento]`" x-model="item.vencimiento" max="{{ date('Y-m-d') }}">
+                                    <input type="date" class="w-full border border-slate-300 rounded-md text-xs text-center px-1.5 py-1.5 focus:border-primary focus:ring-1 focus:ring-primary shadow-xs" :name="`productos[${index}][fecha_vencimiento]`" x-model="item.vencimiento">
                                 </td>
                                 <td class="py-2 px-3 text-center">
                                     <button type="button" @click="eliminarProducto(index)" class="text-slate-400 hover:text-red-600 transition-colors p-1" title="Eliminar fila">
@@ -230,6 +230,21 @@
                 }
             },
 
+            obtenerLoteSugerido() {
+                const numGuia = (document.querySelector('input[name="numero_guia"]')?.value || '').trim().toUpperCase();
+                const fecha = document.querySelector('input[name="fecha_emision"]')?.value || '';
+                let fechaStr = '';
+                if (fecha) {
+                    const parts = fecha.split('-');
+                    if (parts.length === 3) {
+                        fechaStr = `${parts[2]}${parts[1]}${parts[0]}`; // DDMMYYYY ej: 13062026
+                    }
+                }
+                if (numGuia && fechaStr) return `${numGuia}-${fechaStr}`;
+                if (numGuia) return numGuia;
+                return '';
+            },
+
             agregarProducto() {
                 const select = document.getElementById('select-producto');
                 if(!select.value) {
@@ -249,8 +264,8 @@
                     codigo: select.value,
                     descripcion: option.getAttribute('data-desc'),
                     um: option.getAttribute('data-um'),
-                    lote: '',
-                    vencimiento: '',
+                    lote: this.obtenerLoteSugerido(),
+                    vencimiento: document.querySelector('input[name="fecha_emision"]')?.value || '',
                     cantidad: 1
                 });
                 if (window.tsInstance) {

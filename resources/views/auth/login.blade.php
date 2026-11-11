@@ -104,13 +104,13 @@
                     @csrf
 
                     <div class="input-group">
-                        <label for="nombre_usuario" class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 transition-colors">Usuario</label>
+                        <label for="nombre_usuario" class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 transition-colors">Usuario o Correo</label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                 <i class="fas fa-user text-slate-400 transition-colors"></i>
                             </div>
                             <input id="nombre_usuario" name="nombre_usuario" type="text" autocomplete="username" required value="{{ old('nombre_usuario') }}"
-                                   class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all shadow-sm placeholder-slate-300" placeholder="Ej. jperez">
+                                   class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-all shadow-sm placeholder-slate-300" placeholder="Ej. admin o admin@leonplast.com">
                         </div>
                     </div>
 

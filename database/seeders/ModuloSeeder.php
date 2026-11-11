@@ -37,12 +37,19 @@ class ModuloSeeder extends Seeder
             ['nombre' => 'Ajustes de Inventario', 'slug' => 'inventario.ajuste', 'grupo' => 'Inventario', 'icono' => 'fas fa-sliders-h'],
             ['nombre' => 'Extornos y Auditoría', 'slug' => 'inventario.extornos', 'grupo' => 'Inventario', 'icono' => 'fas fa-undo-alt'],
             ['nombre' => 'Transferencias Almacén', 'slug' => 'inventario.transferencias.index', 'grupo' => 'Inventario', 'icono' => 'fas fa-exchange-alt'],
+            ['nombre' => 'Kardex Físico', 'slug' => 'inventario.kardex_fisico', 'grupo' => 'Inventario', 'icono' => 'fas fa-clipboard-list'],
 
             // Contabilidad
             ['nombre' => 'Kardex de Movimientos', 'slug' => 'inventario.kardex', 'grupo' => 'Contabilidad', 'icono' => 'fas fa-book-open'],
 
             // Producción
-            ['nombre' => 'Órdenes de Producción', 'slug' => 'produccion.ordenes.index', 'grupo' => 'Producción', 'icono' => 'fas fa-tasks'],
+            ['nombre' => 'Órdenes de Producción - Ver', 'slug' => 'produccion.ordenes.index', 'grupo' => 'Producción', 'icono' => 'fas fa-tasks'],
+            ['nombre' => 'Órdenes de Producción - Crear', 'slug' => 'produccion.ordenes.create', 'grupo' => 'Producción', 'icono' => 'fas fa-plus-circle'],
+            ['nombre' => 'Órdenes de Producción - Cerrar / Anular', 'slug' => 'produccion.ordenes.finalizar', 'grupo' => 'Producción', 'icono' => 'fas fa-times-circle'],
+            ['nombre' => 'Procesos de Producción - Ver', 'slug' => 'ordenes.procesos.index', 'grupo' => 'Producción', 'icono' => 'fas fa-cogs'],
+            ['nombre' => 'Procesos de Producción - Crear / Asignar', 'slug' => 'ordenes.procesos.create', 'grupo' => 'Producción', 'icono' => 'fas fa-plus-square'],
+            ['nombre' => 'Procesos de Producción - Ejecutar', 'slug' => 'ordenes.procesos.ejecutar', 'grupo' => 'Producción', 'icono' => 'fas fa-play-circle'],
+            ['nombre' => 'Procesos de Producción - Finalizar / Anular', 'slug' => 'ordenes.procesos.finalizar', 'grupo' => 'Producción', 'icono' => 'fas fa-check-double'],
             ['nombre' => 'Transferencias Producción', 'slug' => 'produccion.transferencias.index', 'grupo' => 'Producción', 'icono' => 'fas fa-dolly-flatbed'],
             ['nombre' => 'Rutas de Producción', 'slug' => 'admin.rutas_produccion.index', 'grupo' => 'Producción', 'icono' => 'fas fa-route'],
             ['nombre' => 'Mermas y Recuperados', 'slug' => 'mermas.index', 'grupo' => 'Producción', 'icono' => 'fas fa-recycle'],

@@ -19,11 +19,7 @@ class MoldeController extends Controller
             });
         }
 
-        $moldes = $query->orderBy('descripcion', 'asc')->paginate(10);
-
-        if ($request->ajax()) {
-            return view('tablas_maestras.moldes.table', compact('moldes'))->render();
-        }
+        $moldes = $query->orderBy('codigo', 'asc')->paginate(10)->appends($request->all());
 
         return view('tablas_maestras.moldes.index', compact('moldes', 'search'));
     }
@@ -37,7 +33,7 @@ class MoldeController extends Controller
     {
         $request->validate([
             'codigo' => 'required|string|max:20|unique:molde,codigo',
-            'descripcion' => 'required|string|max:150',
+            'descripcion' => 'required|string|max:255',
         ], [
             'codigo.unique' => 'Este código de molde ya existe en el sistema.',
             'codigo.required' => 'El código es obligatorio.',
@@ -64,7 +60,7 @@ class MoldeController extends Controller
         $molde = Molde::findOrFail($codigo);
 
         $request->validate([
-            'descripcion' => 'required|string|max:150',
+            'descripcion' => 'required|string|max:255',
         ]);
 
         $molde->update([

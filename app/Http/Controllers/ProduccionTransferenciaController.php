@@ -147,11 +147,17 @@ class ProduccionTransferenciaController extends Controller
 
             $numero_transferencia = 'TRP-' . str_pad($num, 6, '0', STR_PAD_LEFT);
 
+            $horaTransferencia = now()->format('H:i:s');
+            if ($request->filled('hora_transferencia')) {
+                $horaTransferencia = strlen($request->hora_transferencia) === 5 ? $request->hora_transferencia . ':00' : $request->hora_transferencia;
+            }
+            $fechaHoraTransferencia = \Carbon\Carbon::parse($request->fecha_transferencia . ' ' . $horaTransferencia)->format('Y-m-d H:i:s');
+
             $transferencia = TransferenciaAlmacen::create([
                 'numero_transferencia'   => $numero_transferencia,
                 'codigo_almacen_origen'  => $origen,
                 'codigo_almacen_destino' => $destino,
-                'fecha_transferencia'    => $request->fecha_transferencia,
+                'fecha_transferencia'    => $fechaHoraTransferencia,
                 'observaciones'          => $request->observaciones,
                 'estado'                 => 'COMPLETADO',
                 'usuario_registro'       => $usuario_id,
@@ -177,26 +183,32 @@ class ProduccionTransferenciaController extends Controller
                     ->lockForUpdate()
                     ->get();
 
-                $stockTotalDisponible = $lotesDisponibles->sum('stock_actual');
+                $stockTotalDisponible = floatval($lotesDisponibles->sum('stock_actual'));
 
-                if ($stockTotalDisponible < $cantidadSolicitada) {
+                if (round($stockTotalDisponible, 4) < round($cantidadSolicitada, 4)) {
                     throw new \Exception("Stock insuficiente en origen ({$origen}) para el producto {$codigoProd}. Solicitado: {$cantidadSolicitada}, Disponible Total: {$stockTotalDisponible}");
                 }
 
                 $pendientePorTransferir = $cantidadSolicitada;
 
                 foreach ($lotesDisponibles as $loteOrigen) {
-                    if ($pendientePorTransferir <= 0) break;
+                    if (round($pendientePorTransferir, 4) <= 0) break;
 
                     $disponibleEnLote = floatval($loteOrigen->stock_actual);
-                    $tomarDeLote = min($disponibleEnLote, $pendientePorTransferir);
+                    
+                    if (abs($disponibleEnLote - $pendientePorTransferir) < 0.0001 || $disponibleEnLote <= $pendientePorTransferir) {
+                        $tomarDeLote = $disponibleEnLote;
+                    } else {
+                        $tomarDeLote = min($disponibleEnLote, $pendientePorTransferir);
+                    }
+
                     $costoUnitario = floatval($loteOrigen->costo_promedio ?? 0);
                     $loteCodigo = $loteOrigen->lote;
 
                     // 1. Descontar del origen
                     DB::table('inventario')->where('id_inventario', $loteOrigen->id_inventario)->update([
-                        'stock_actual' => DB::raw("stock_actual - {$tomarDeLote}"),
-                        'fecha_ultimo_movimiento' => $request->fecha_transferencia,
+                        'stock_actual' => DB::raw("GREATEST(0, stock_actual - {$tomarDeLote})"),
+                        'fecha_ultimo_movimiento' => $fechaHoraTransferencia,
                         'usuario_ultimo_movimiento' => $usuario_id
                     ]);
 
@@ -213,7 +225,7 @@ class ProduccionTransferenciaController extends Controller
                         'numero_referencia'    => $numero_transferencia,
                         'observaciones'        => "Transferencia de Producción hacia {$destino}",
                         'usuario_movimiento'   => $usuario_id,
-                        'fecha_movimiento'     => $request->fecha_transferencia,
+                        'fecha_movimiento'     => $fechaHoraTransferencia,
                         'estado'               => 1,
                         'tiene_kardex'         => true,
                     ]);
@@ -229,7 +241,7 @@ class ProduccionTransferenciaController extends Controller
                     DB::table('kardex')->insert([
                         'codigo_almacen'               => $origen,
                         'codigo_producto'              => $codigoProd,
-                        'fecha_movimiento'             => $request->fecha_transferencia,
+                        'fecha_movimiento'             => $fechaHoraTransferencia,
                         'tipo_movimiento'              => 'SALIDA',
                         'documento'                    => 'TRANSFERENCIA_PROD',
                         'numero_documento'             => $numero_transferencia,
@@ -260,7 +272,7 @@ class ProduccionTransferenciaController extends Controller
                         DB::table('inventario')->where('id_inventario', $invDestino->id_inventario)->update([
                             'stock_actual' => DB::raw("stock_actual + {$tomarDeLote}"),
                             'estado' => 1,
-                            'fecha_ultimo_movimiento' => $request->fecha_transferencia,
+                            'fecha_ultimo_movimiento' => $fechaHoraTransferencia,
                             'usuario_ultimo_movimiento' => $usuario_id
                         ]);
                     } else {
@@ -273,7 +285,7 @@ class ProduccionTransferenciaController extends Controller
                             'lote'                      => $loteCodigo,
                             'fecha_vencimiento'         => $loteOrigen->fecha_vencimiento,
                             'estado'                    => 1,
-                            'fecha_ultimo_movimiento'   => $request->fecha_transferencia,
+                            'fecha_ultimo_movimiento'   => $fechaHoraTransferencia,
                             'usuario_ultimo_movimiento' => $usuario_id,
                         ]);
                     }
@@ -291,7 +303,7 @@ class ProduccionTransferenciaController extends Controller
                         'numero_referencia'    => $numero_transferencia,
                         'observaciones'        => "Recepción de Producción desde {$origen}",
                         'usuario_movimiento'   => $usuario_id,
-                        'fecha_movimiento'     => $request->fecha_transferencia,
+                        'fecha_movimiento'     => $fechaHoraTransferencia,
                         'estado'               => 1,
                         'tiene_kardex'         => true,
                     ]);
@@ -307,7 +319,7 @@ class ProduccionTransferenciaController extends Controller
                     DB::table('kardex')->insert([
                         'codigo_almacen'               => $destino,
                         'codigo_producto'              => $codigoProd,
-                        'fecha_movimiento'             => $request->fecha_transferencia,
+                        'fecha_movimiento'             => $fechaHoraTransferencia,
                         'tipo_movimiento'              => 'INGRESO',
                         'documento'                    => 'TRANSFERENCIA_PROD',
                         'numero_documento'             => $numero_transferencia,
@@ -400,7 +412,7 @@ class ProduccionTransferenciaController extends Controller
                     ->lockForUpdate()
                     ->first();
 
-                if (!$invDestino || $invDestino->stock_actual < $det->cantidad) {
+                if (!$invDestino || round(floatval($invDestino->stock_actual), 4) < round(floatval($det->cantidad), 4)) {
                     throw new \Exception("Stock insuficiente en el almacén de destino ({$destino}) para revertir el lote {$det->lote} del producto {$det->codigo_producto}.");
                 }
 
@@ -408,7 +420,7 @@ class ProduccionTransferenciaController extends Controller
 
                 // 2. Descontar del destino
                 DB::table('inventario')->where('id_inventario', $invDestino->id_inventario)->update([
-                    'stock_actual' => DB::raw("stock_actual - {$det->cantidad}"),
+                    'stock_actual' => DB::raw("GREATEST(0, stock_actual - {$det->cantidad})"),
                     'fecha_ultimo_movimiento' => now(),
                     'usuario_ultimo_movimiento' => $usuario_id
                 ]);

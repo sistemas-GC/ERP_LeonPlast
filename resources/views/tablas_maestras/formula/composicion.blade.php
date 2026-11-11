@@ -82,20 +82,57 @@
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse min-w-[800px]">
                     <thead>
-                        <tr class="bg-slate-800 text-white text-[11px] uppercase tracking-wider font-bold">
-                            <th class="py-3 px-4 md:px-6">Producto (Materia Prima)</th>
-                            <th class="py-3 px-4 md:px-6">Tipo</th>
-                            <th class="py-3 px-4 md:px-6 text-center">C. Nominal</th>
-                            <th class="py-3 px-4 md:px-6 text-center">C. Real</th>
-                            <th class="py-3 px-4 md:px-6 text-center">U.M.</th>
-                            <th class="py-3 px-4 md:px-6">Molde Asignado</th>
+                        <tr class="bg-slate-800 text-white text-[11px] uppercase tracking-wider font-bold select-none">
+                            <th class="py-3 px-4 md:px-6 cursor-pointer hover:bg-slate-700/80 transition group" onclick="sortTable('codigo')">
+                                <div class="flex items-center gap-1.5">
+                                    <span>Código</span>
+                                    <i class="fas fa-sort text-slate-400 group-hover:text-white transition text-[10px]" id="sort-icon-codigo"></i>
+                                </div>
+                            </th>
+                            <th class="py-3 px-4 md:px-6 cursor-pointer hover:bg-slate-700/80 transition group" onclick="sortTable('producto')">
+                                <div class="flex items-center gap-1.5">
+                                    <span>Producto (Materia Prima)</span>
+                                    <i class="fas fa-sort text-slate-400 group-hover:text-white transition text-[10px]" id="sort-icon-producto"></i>
+                                </div>
+                            </th>
+                            <th class="py-3 px-4 md:px-6 cursor-pointer hover:bg-slate-700/80 transition group" onclick="sortTable('tipo')">
+                                <div class="flex items-center gap-1.5">
+                                    <span>Tipo</span>
+                                    <i class="fas fa-sort text-slate-400 group-hover:text-white transition text-[10px]" id="sort-icon-tipo"></i>
+                                </div>
+                            </th>
+                            <th class="py-3 px-4 md:px-6 text-center cursor-pointer hover:bg-slate-700/80 transition group" onclick="sortTable('nominal')">
+                                <div class="flex items-center justify-center gap-1.5">
+                                    <span>C. Nominal</span>
+                                    <i class="fas fa-sort text-slate-400 group-hover:text-white transition text-[10px]" id="sort-icon-nominal"></i>
+                                </div>
+                            </th>
+                            <th class="py-3 px-4 md:px-6 text-center cursor-pointer hover:bg-slate-700/80 transition group" onclick="sortTable('real')">
+                                <div class="flex items-center justify-center gap-1.5">
+                                    <span>C. Real</span>
+                                    <i class="fas fa-sort text-slate-400 group-hover:text-white transition text-[10px]" id="sort-icon-real"></i>
+                                </div>
+                            </th>
+                            <th class="py-3 px-4 md:px-6 text-center cursor-pointer hover:bg-slate-700/80 transition group" onclick="sortTable('unidad')">
+                                <div class="flex items-center justify-center gap-1.5">
+                                    <span>U.M.</span>
+                                    <i class="fas fa-sort text-slate-400 group-hover:text-white transition text-[10px]" id="sort-icon-unidad"></i>
+                                </div>
+                            </th>
+                            <th class="py-3 px-4 md:px-6 cursor-pointer hover:bg-slate-700/80 transition group" onclick="sortTable('molde')">
+                                <div class="flex items-center gap-1.5">
+                                    <span>Molde Asignado</span>
+                                    <i class="fas fa-sort text-slate-400 group-hover:text-white transition text-[10px]" id="sort-icon-molde"></i>
+                                </div>
+                            </th>
                             <th class="py-3 px-4 md:px-6 text-center w-28">Acciones</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 bg-white" id="tbComposicion">
                         @foreach($composiciones as $idx => $comp)
                             <tr class="hover:bg-slate-50/80 transition duration-150" data-id="row-{{ $idx }}">
-                                <td class="px-4 md:px-6 py-2.5 font-bold text-xs md:text-sm text-slate-900 text-producto">{{ $comp->producto ? $comp->producto->descripcion : $comp->codigo_producto }}</td>
+                                <td class="px-4 md:px-6 py-2.5 font-bold text-xs md:text-sm text-slate-900 whitespace-nowrap text-codigo">{{ $comp->codigo_producto }}</td>
+                                <td class="px-4 md:px-6 py-2.5 font-semibold text-xs md:text-sm text-slate-800 text-producto">{{ $comp->producto ? $comp->producto->descripcion : $comp->codigo_producto }}</td>
                                 <td class="px-4 md:px-6 py-2.5 text-xs text-slate-600 uppercase font-medium text-tipo-desc">{{ $comp->producto && $comp->producto->tipo ? $comp->producto->tipo->descripcion : $comp->codigo_tipo_producto }}</td>
                                 <td class="px-4 md:px-6 py-2.5 text-center text-xs font-semibold text-slate-700 text-nominal">{{ number_format(floor($comp->cantidad_nominal * 10000) / 10000, 4, '.', '') }}</td>
                                 <td class="px-4 md:px-6 py-2.5 text-center font-bold text-xs md:text-sm text-slate-900 text-real">{{ number_format(floor($comp->cantidad_real * 10000) / 10000, 4, '.', '') }}</td>
@@ -221,7 +258,8 @@
 
 <template id="rowTemplate">
     <tr class="hover:bg-slate-50 transition border-b border-slate-50">
-        <td class="px-4 md:px-6 py-2.5 font-bold text-xs md:text-sm text-slate-900 text-producto"></td>
+        <td class="px-4 md:px-6 py-2.5 font-bold text-xs md:text-sm text-slate-900 whitespace-nowrap text-codigo"></td>
+        <td class="px-4 md:px-6 py-2.5 font-semibold text-xs md:text-sm text-slate-800 text-producto"></td>
         <td class="px-4 md:px-6 py-2.5 text-xs text-slate-600 uppercase font-medium text-tipo-desc"></td>
         <td class="px-4 md:px-6 py-2.5 text-center text-xs font-semibold text-slate-700 text-nominal"></td>
         <td class="px-4 md:px-6 py-2.5 text-center font-bold text-xs md:text-sm text-slate-900 text-real"></td>
@@ -251,6 +289,14 @@
     $(document).ready(function() {
         // Inicializar Select2
         $('#moldeGlobal').select2({ width: '100%' });
+        
+        $('#modalMolde').select2({
+            width: '100%',
+            dropdownParent: $('#modalComponente'),
+            placeholder: 'Ninguno / Seleccione molde...',
+            allowClear: true
+        });
+
         $('#modalProducto').select2({
             width: '100%',
             dropdownParent: $('#modalComponente'),
@@ -332,6 +378,96 @@
         updatePagination();
     }
 
+    let currentSortColumn = null;
+    let currentSortDirection = 'asc';
+
+    function sortTable(column) {
+        const rows = Array.from(tbComposicion.querySelectorAll('tr'));
+        if (rows.length === 0) return;
+
+        if (currentSortColumn === column) {
+            currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSortColumn = column;
+            currentSortDirection = 'asc';
+        }
+
+        // Actualizar iconos de cabecera
+        const columns = ['codigo', 'producto', 'tipo', 'nominal', 'real', 'unidad', 'molde'];
+        columns.forEach(col => {
+            const icon = document.getElementById('sort-icon-' + col);
+            if (icon) {
+                if (col === currentSortColumn) {
+                    icon.className = `fas fa-sort-${currentSortDirection === 'asc' ? 'up text-amber-400' : 'down text-amber-400'} text-[11px]`;
+                } else {
+                    icon.className = 'fas fa-sort text-slate-400 group-hover:text-white transition text-[10px]';
+                }
+            }
+        });
+
+        // Ordenamiento según el tipo de dato de cada columna
+        rows.sort((rowA, rowB) => {
+            let valA, valB;
+
+            switch (column) {
+                case 'codigo':
+                    valA = rowA.querySelector('.text-codigo')?.innerText.trim() || '';
+                    valB = rowB.querySelector('.text-codigo')?.innerText.trim() || '';
+                    return currentSortDirection === 'asc'
+                        ? valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' })
+                        : valB.localeCompare(valA, undefined, { numeric: true, sensitivity: 'base' });
+
+                case 'producto':
+                    valA = rowA.querySelector('.text-producto')?.innerText.trim() || '';
+                    valB = rowB.querySelector('.text-producto')?.innerText.trim() || '';
+                    return currentSortDirection === 'asc'
+                        ? valA.localeCompare(valB, undefined, { sensitivity: 'base' })
+                        : valB.localeCompare(valA, undefined, { sensitivity: 'base' });
+
+                case 'tipo':
+                    valA = rowA.querySelector('.text-tipo-desc')?.innerText.trim() || '';
+                    valB = rowB.querySelector('.text-tipo-desc')?.innerText.trim() || '';
+                    return currentSortDirection === 'asc'
+                        ? valA.localeCompare(valB, undefined, { sensitivity: 'base' })
+                        : valB.localeCompare(valA, undefined, { sensitivity: 'base' });
+
+                case 'nominal':
+                    valA = parseFloat(rowA.querySelector('.text-nominal')?.innerText.trim()) || 0;
+                    valB = parseFloat(rowB.querySelector('.text-nominal')?.innerText.trim()) || 0;
+                    return currentSortDirection === 'asc' ? valA - valB : valB - valA;
+
+                case 'real':
+                    valA = parseFloat(rowA.querySelector('.text-real')?.innerText.trim()) || 0;
+                    valB = parseFloat(rowB.querySelector('.text-real')?.innerText.trim()) || 0;
+                    return currentSortDirection === 'asc' ? valA - valB : valB - valA;
+
+                case 'unidad':
+                    valA = rowA.querySelector('.text-unidad')?.innerText.trim() || '';
+                    valB = rowB.querySelector('.text-unidad')?.innerText.trim() || '';
+                    return currentSortDirection === 'asc'
+                        ? valA.localeCompare(valB)
+                        : valB.localeCompare(valA);
+
+                case 'molde':
+                    valA = rowA.querySelector('.text-molde')?.innerText.trim() || '';
+                    valB = rowB.querySelector('.text-molde')?.innerText.trim() || '';
+                    if (valA === 'Sin Molde') valA = currentSortDirection === 'asc' ? 'ZZZZ' : '';
+                    if (valB === 'Sin Molde') valB = currentSortDirection === 'asc' ? 'ZZZZ' : '';
+                    return currentSortDirection === 'asc'
+                        ? valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' })
+                        : valB.localeCompare(valA, undefined, { numeric: true, sensitivity: 'base' });
+            }
+            return 0;
+        });
+
+        // Reinsertar las filas ordenadas
+        rows.forEach(r => tbComposicion.appendChild(r));
+
+        // Volver a la primera página y actualizar la paginación
+        currentPage = 1;
+        updatePagination();
+    }
+
     $(document).ready(function() {
         updatePagination();
     });
@@ -364,7 +500,7 @@
             document.getElementById('modalNominal').value = fila.querySelector('.input-nominal').value;
             document.getElementById('modalReal').value = fila.querySelector('.input-real').value;
             document.getElementById('modalUnidad').value = fila.querySelector('.input-unidad').value;
-            document.getElementById('modalMolde').value = fila.querySelector('.input-molde').value;
+            $('#modalMolde').val(fila.querySelector('.input-molde').value || '').trigger('change');
             
             const prodVal = fila.querySelector('.input-producto').value;
             const prodTxt = fila.querySelector('.text-producto').innerText;
@@ -383,7 +519,7 @@
             $('#modalProducto').val('').trigger('change');
             document.getElementById('modalTipo').value = '';
             document.getElementById('modalTipoDesc').value = '';
-            document.getElementById('modalMolde').value = $('#moldeGlobal').val();
+            $('#modalMolde').val($('#moldeGlobal').val() || '').trigger('change');
         }
         modal.classList.remove('hidden');
     }
@@ -417,6 +553,7 @@
             msgVacio.classList.add('hidden');
         }
 
+        fila.querySelector('.text-codigo').innerText = data.prodVal;
         fila.querySelector('.text-producto').innerText = data.prodTxt;
         fila.querySelector('.text-tipo-desc').innerText = data.tipoTxt;
         fila.querySelector('.text-nominal').innerText = data.nominal;

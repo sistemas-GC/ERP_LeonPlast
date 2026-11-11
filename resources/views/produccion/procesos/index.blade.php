@@ -6,10 +6,15 @@
 <div class="container mx-auto pb-8 md:pb-10">
     <div class="flex justify-between items-center mb-6 gap-4">
         <div>
-            <nav class="flex text-sm text-slate-500 mb-2">
-                <a href="{{ route('produccion.ordenes.index') }}" class="hover:text-primary font-medium transition-colors">📋 Volver a Órdenes</a>
+            <nav class="flex items-center text-sm text-slate-500 mb-2">
+                <a href="{{ route('produccion.ordenes.index') }}" 
+                   onclick="if (window.parent && window.parent.cambiarPestana) { event.preventDefault(); window.parent.cambiarPestana('lista'); }" 
+                   class="hover:text-primary font-medium transition-colors inline-flex items-center gap-1 cursor-pointer">
+                    <i class="fas fa-arrow-left text-xs"></i>
+                    <span>Volver a Órdenes</span>
+                </a>
                 <span class="mx-2">›</span>
-                <span class="text-slate-700">Orden #{{ $orden->codigo_op }}</span>
+                <span class="text-slate-700 font-semibold">Orden #{{ $orden->codigo_op }}</span>
             </nav>
             <h1 class="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-3">
                 Procesos de Producción
@@ -23,7 +28,7 @@
             </p>
         </div>
         <div class="flex items-center gap-2">
-            @if($orden->estado !== 'COMPLETADO')
+            @if($orden->estado !== 'COMPLETADO' && Auth::user()->hasAccess('produccion.ordenes.finalizar'))
                 <form action="{{ route('produccion.ordenes.finalizar', $orden->idop) }}" method="POST" onsubmit="return confirm('¿Está seguro de que desea CERRAR DEFINITIVAMENTE esta Orden de Producción? Ya no podrá agregar nuevos procesos o ingresos.');">
                     @csrf
                     <button type="submit" class="shrink-0 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 sm:px-4 rounded-lg shadow transition">
@@ -32,7 +37,7 @@
                     </button>
                 </form>
             @endif
-            @if($orden->estado !== 'COMPLETADO')
+            @if($orden->estado !== 'COMPLETADO' && Auth::user()->hasAccess('ordenes.procesos.create'))
                 <a href="{{ route('ordenes.procesos.create', $orden->idop) }}" class="shrink-0 flex items-center justify-center bg-primary hover:bg-primary-dark text-white font-semibold py-2 px-3 sm:px-4 rounded-lg shadow transition">
                     <i class="fas fa-plus"></i>
                     <span class="hidden sm:inline ml-2">Agregar Proceso</span>
@@ -102,12 +107,16 @@
                             <td class="p-4 border-r border-slate-200 text-center">
                                 @if($orden->estado !== 'COMPLETADO')
                                 <div class="flex justify-center gap-2">
+                                    @if(Auth::user()->hasAccess('ordenes.procesos.ejecutar'))
                                     <a href="{{ route('ordenes.procesos.ejecutar', [$orden->idop, $p->id]) }}" class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-primary hover:bg-primary-dark shadow-sm transition-colors" title="Ejecutar proceso">
                                         <i class="fas fa-play mr-1"></i> Ejecutar
                                     </a>
+                                    @endif
+                                    @if(Auth::user()->hasAccess('ordenes.procesos.finalizar'))
                                     <button onclick="delProc({{ $p->id }}, '{{ addslashes($p->proceso_desc) }}')" class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-500 hover:bg-red-600 shadow-sm" title="Anular proceso">
                                         <i class="fas fa-trash mr-1"></i> Anular
                                     </button>
+                                    @endif
                                 </div>
                                 @else
                                 <span class="text-xs text-slate-400"><i class="fas fa-lock mr-1"></i>Bloqueado</span>

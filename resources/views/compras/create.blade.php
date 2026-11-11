@@ -3,7 +3,7 @@
 
 @section('content')
 <link href="/vendor/select2/select2.min.css" rel="stylesheet" />
-<div class="container mx-auto px-4 py-6 max-w-7xl">
+<div class="container mx-auto px-2 sm:px-4 py-6 max-w-[1650px]">
 
     <x-page-header title="Registrar Nueva Compra" subtitle="Complete los datos del comprobante y asigne el almacén por cada insumo.">
         <x-slot:actions>
@@ -34,101 +34,136 @@
         </div>
         @endif
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 xl:gap-6">
 
-            <div class="lg:col-span-8 xl:col-span-9 space-y-6">
-                <x-card>
-                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                        <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
-                            <i class="fas fa-file-invoice text-primary"></i> Datos del Comprobante
-                        </h2>
+            <div class="lg:col-span-9 xl:col-span-9 space-y-6">
+                <!-- SECCIÓN 1: DATOS DEL COMPROBANTE -->
+                <div class="bg-white rounded-xl shadow-md border border-slate-200/80 p-5 md:p-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3.5 mb-5">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-file-invoice text-emerald-600 text-base"></i>
+                            <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wide">1. Datos del Comprobante</h2>
+                        </div>
                         
                         <!-- Selector de Guía de Remisión -->
                         <div class="flex items-center gap-2">
-                            <label class="text-xs font-semibold text-slate-500">¿Vincular a Guía?</label>
-                            <select name="ids_guias[]" id="selectGuia" multiple="multiple" class="border border-slate-300 rounded-lg text-sm px-2 py-1 bg-white focus:ring-primary focus:border-primary" style="width: 350px;">
-                                @foreach($guiasPendientes as $guia)
-                                    <option value="{{ $guia->id_guia }}" data-ruc="{{ $guia->ruc_proveedor }}">
-                                        Guía {{ $guia->numero_guia }} - {{ Str::limit($guia->proveedor, 20) }}
-                                    </option>
-                                @endforeach
-                            </select>
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">¿Vincular Guía?</label>
+                            <div class="w-64 sm:w-80">
+                                <select name="ids_guias[]" id="selectGuia" multiple="multiple">
+                                    @foreach($guiasPendientes as $guia)
+                                        <option value="{{ $guia->id_guia }}" data-ruc="{{ $guia->ruc_proveedor }}">
+                                            Guía {{ $guia->numero_guia }} - {{ Str::limit($guia->proveedor, 20) }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
                         </div>
                     </div>
-                    <div class="p-6">
+                    <div>
                         <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                            <x-form-group class="md:col-span-2" label="Tipo Doc." required>
-                                <select name="tipo_documento" class="input-field text-xs" required>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Tipo Doc. <span class="text-red-500">*</span></label>
+                                <select name="tipo_documento" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" required>
                                     @foreach($tipos_comprobante as $tc)
                                         <option value="{{ $tc->valor }}">{{ $tc->descripcion }}</option>
                                     @endforeach
                                 </select>
-                            </x-form-group>
-                            <x-form-group class="md:col-span-2" label="Serie" required>
-                                <input type="text" name="serie_documento" class="input-field uppercase text-xs" placeholder="F001" required>
-                            </x-form-group>
-                            <x-form-group class="md:col-span-3" label="N° Documento" required>
-                                <input type="text" name="numero_documento" class="input-field text-xs font-mono" placeholder="00000001" required>
-                            </x-form-group>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Serie <span class="text-red-500">*</span></label>
+                                <input type="text" name="serie_documento" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 uppercase focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" placeholder="F001" required>
+                            </div>
+                            <div class="md:col-span-3">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">N° Documento <span class="text-red-500">*</span></label>
+                                <input type="text" name="numero_documento" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 font-mono focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" placeholder="00000001" required>
+                            </div>
 
-                            <x-form-group class="md:col-span-3" label="Fecha de Emisión" required>
-                                <input type="date" name="fecha_compra" value="{{ date('Y-m-d') }}" class="input-field text-xs" required max="{{ date('Y-m-d') }}">
-                            </x-form-group>
+                            <div class="md:col-span-3">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Fecha Emisión <span class="text-red-500">*</span></label>
+                                <input type="date" name="fecha_compra" value="{{ date('Y-m-d') }}" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" required max="{{ date('Y-m-d') }}">
+                            </div>
 
-                            <x-form-group class="md:col-span-2" label="Moneda" required>
-                                <select name="moneda" id="selectMoneda" class="input-field text-xs" required>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Moneda <span class="text-red-500">*</span></label>
+                                <select name="moneda" id="selectMoneda" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" required>
                                     <option value="PEN">Soles (PEN)</option>
                                     <option value="USD">Dólares (USD)</option>
                                 </select>
-                            </x-form-group>
+                            </div>
 
-                            <x-form-group class="md:col-span-6" label="Proveedor" required>
+                            <div class="md:col-span-6">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Proveedor <span class="text-red-500">*</span></label>
                                 <div class="flex gap-2">
-                                    <select name="ruc_proveedor" id="selectProveedor" class="input-field text-xs" required>
+                                    <select name="ruc_proveedor" id="selectProveedor" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" required>
                                         <option value="">Seleccione Proveedor...</option>
                                         @foreach($proveedores as $p)
                                             <option value="{{ $p->ruc }}">{{ $p->ruc }} - {{ $p->razon_social }}</option>
                                         @endforeach
                                     </select>
-                                    <button type="button" onclick="abrirModal('modalProveedor')" class="bg-slate-800 text-white px-3.5 rounded-lg hover:bg-slate-700 transition shadow-sm text-xs" title="Registrar Nuevo Proveedor">
+                                    <button type="button" onclick="abrirModal('modalProveedor')" class="bg-slate-800 text-white px-3.5 rounded-lg hover:bg-slate-700 transition shadow-xs text-xs flex items-center justify-center shrink-0" title="Registrar Nuevo Proveedor">
                                         <i class="fas fa-plus"></i>
                                     </button>
                                 </div>
-                            </x-form-group>
+                            </div>
 
-                            <x-form-group class="md:col-span-3" label="Condición de Pago" required>
-                                <select name="condicion_pago" id="selectCondicionPago" class="input-field font-semibold text-xs" required>
+                            <div class="md:col-span-3">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Condición Pago <span class="text-red-500">*</span></label>
+                                <select name="condicion_pago" id="selectCondicionPago" class="w-full rounded-lg border border-slate-300 px-3 py-2 font-semibold text-xs text-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" required>
                                     <option value="CONTADO">Contado</option>
                                     <option value="CREDITO">Crédito</option>
                                 </select>
-                            </x-form-group>
+                            </div>
 
-                            <x-form-group class="md:col-span-3" label="Fecha de Vencimiento" id="groupFechaVencimiento">
-                                <input type="date" name="fecha_vencimiento" id="inputFechaVencimiento" class="input-field text-xs" value="{{ date('Y-m-d') }}">
-                            </x-form-group>
+                            <div class="md:col-span-3" id="groupFechaVencimiento">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Fecha Vencimiento</label>
+                                <input type="date" name="fecha_vencimiento" id="inputFechaVencimiento" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" value="{{ date('Y-m-d') }}">
+                            </div>
 
-                            <x-form-group class="md:col-span-3" label="Tipo de Cambio" id="groupTipoCambio" style="display: none;">
-                                <input type="number" name="tipo_cambio" id="inputTipoCambio" step="0.001" min="0" class="input-field text-xs" placeholder="Ej. 3.800" value="1.000">
-                            </x-form-group>
+                            <div class="md:col-span-3" id="groupTipoCambio" style="display: none;">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">Tipo de Cambio</label>
+                                <input type="number" name="tipo_cambio" id="inputTipoCambio" step="0.001" min="0" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" placeholder="Ej. 3.800" value="1.000">
+                            </div>
                         </div>
 
                         <!-- Sección de Cuotas al Crédito -->
                         <div id="seccionCuotasCredito" class="mt-6 pt-5 border-t border-slate-200" style="display: none;">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                            <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-3 mb-3">
                                 <div>
                                     <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                                         <i class="fas fa-calendar-alt text-amber-500"></i> Cuotas de la Factura (Crédito)
                                     </h3>
-                                    <p class="text-xs text-slate-500 mt-0.5">Ingrese las cuotas impresas en la factura con su fecha de vencimiento y monto.</p>
+                                    <p class="text-xs text-slate-500 mt-0.5">Ingrese las cuotas con su fecha de vencimiento y monto acordado.</p>
                                 </div>
-                                <button type="button" id="btnAgregarCuota" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-50 text-amber-700 border border-amber-300 rounded-lg text-xs font-bold hover:bg-amber-100 transition shadow-xs">
-                                    <i class="fas fa-plus"></i> Agregar Cuota
-                                </button>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <!-- Controles Rápidos de Generación Automática (Inline) -->
+                                    <div class="flex items-center gap-1.5 bg-amber-50/80 border border-amber-200/90 px-2.5 py-1 rounded-lg shadow-2xs">
+                                        <label for="quickNumCuotas" class="text-[11px] font-bold text-amber-900 uppercase">Cuotas:</label>
+                                        <input type="number" id="quickNumCuotas" min="1" max="48" value="2" class="w-14 text-center rounded-md border border-amber-300 bg-white py-1 text-xs font-bold text-slate-800 focus:ring-1 focus:ring-amber-500 shadow-2xs" title="Número de cuotas">
+                                        
+                                        <label for="quickDiasIntervalo" class="text-[11px] font-bold text-amber-900 uppercase ml-1">Días:</label>
+                                        <input type="number" id="quickDiasIntervalo" min="1" max="365" value="30" class="w-16 text-center rounded-md border border-amber-300 bg-white py-1 text-xs font-bold text-slate-800 focus:ring-1 focus:ring-amber-500 shadow-2xs" title="Cantidad de días entre cada cuota">
+                                        
+                                        <button type="button" id="btnProcesarCuotasQuick" class="inline-flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-1 px-3 rounded-md shadow-2xs transition active:scale-95" title="Generar cuotas automáticamente">
+                                            <i class="fas fa-cogs"></i>
+                                            <span>Procesar</span>
+                                        </button>
+                                    </div>
+
+                                    <button type="button" id="btnAbrirModalCuotas" class="inline-flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold hover:bg-indigo-100 transition shadow-2xs" title="Abrir asistente detallado">
+                                        <i class="fas fa-calculator"></i>
+                                        <span>Asistente</span>
+                                    </button>
+
+                                    <button type="button" id="btnAgregarCuota" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-slate-700 border border-slate-300 rounded-lg text-xs font-bold hover:bg-slate-50 transition shadow-2xs">
+                                        <i class="fas fa-plus text-amber-500"></i>
+                                        <span>Agregar Cuota</span>
+                                    </button>
+                                </div>
                             </div>
 
                             <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-xs">
                                 <table class="w-full text-xs text-left" id="tablaCuotas">
-                                    <thead class="bg-slate-50 text-slate-600 font-bold uppercase border-b border-slate-200">
+                                    <thead class="bg-slate-50 text-slate-600 font-bold uppercase border-b border-slate-200 text-[11px]">
                                         <tr>
                                             <th class="py-2.5 px-3 w-16 text-center">N°</th>
                                             <th class="py-2.5 px-3">Fecha de Vencimiento <span class="text-red-500">*</span></th>
@@ -157,69 +192,65 @@
                             </div>
                         </div>
                     </div>
-                </x-card>
+                </div>
 
-                <x-card>
-                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                        <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
-                            <i class="fas fa-boxes text-primary"></i> Detalle de Recepción
-                        </h2>
-                        <div class="flex items-center gap-3">
-                            <div class="bg-amber-50 border border-amber-200 px-4 py-2 rounded-lg shadow-sm">
-                                <label class="inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" name="inafecto_igv" id="checkInafecto" class="form-checkbox rounded text-amber-600 h-5 w-5 focus:ring-amber-500 border-amber-300 transition-colors" onchange="recalcularTotales()">
-                                    <span class="ml-2 text-xs text-amber-800 font-bold tracking-wide uppercase">No afecto al IGV</span>
-                                </label>
-                            </div>
-                            <div class="bg-indigo-50 border border-indigo-200 px-4 py-2 rounded-lg shadow-sm">
-                                <label class="inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" name="igv_incluido" id="checkIgv" class="form-checkbox rounded text-indigo-600 h-5 w-5 focus:ring-indigo-500 border-indigo-300 transition-colors" onchange="recalcularTotales()">
-                                    <span class="ml-2 text-xs text-indigo-800 font-bold tracking-wide uppercase">Precios Incluyen IGV</span>
-                                </label>
-                            </div>
+                <!-- SECCIÓN 2: DETALLE DE RECEPCIÓN Y PRODUCTOS -->
+                <div class="bg-white rounded-xl shadow-md border border-slate-200/80 p-5 md:p-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3.5 mb-5">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-boxes text-emerald-600 text-base"></i>
+                            <h2 class="text-xs font-bold text-slate-800 uppercase tracking-wide">2. Detalle de Recepción y Productos</h2>
+                        </div>
+                        <div class="flex items-center gap-2.5">
+                            <label class="inline-flex items-center cursor-pointer bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg shadow-2xs hover:bg-amber-100/60 transition">
+                                <input type="checkbox" name="inafecto_igv" id="checkInafecto" class="form-checkbox rounded text-amber-600 h-4 w-4 focus:ring-amber-500 border-amber-300 transition-colors" onchange="recalcularTotales()">
+                                <span class="ml-2 text-[11px] text-amber-800 font-bold tracking-wide uppercase">No afecto al IGV</span>
+                            </label>
+                            <label class="inline-flex items-center cursor-pointer bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg shadow-2xs hover:bg-indigo-100/60 transition">
+                                <input type="checkbox" name="igv_incluido" id="checkIgv" class="form-checkbox rounded text-indigo-600 h-4 w-4 focus:ring-indigo-500 border-indigo-300 transition-colors" onchange="recalcularTotales()">
+                                <span class="ml-2 text-[11px] text-indigo-800 font-bold tracking-wide uppercase">Precios Incluyen IGV</span>
+                            </label>
                         </div>
                     </div>
-                    <div class="p-4">
-                        <div class="rounded-lg border border-slate-200 mb-3 overflow-x-auto">
-                            <table class="w-full text-left border-collapse table-fixed" id="tablaProductos">
-                                <colgroup>
-                                    <col class="w-[4%]">
-                                    <col class="w-[22%]">
-                                    <col class="w-[12%]">
-                                    <col class="w-[8%]">
-                                    <col class="w-[7%]">
-                                    <col class="w-[10%]">
-                                    <col class="w-[10%]">
-                                    <col class="w-[11%]">
-                                    <col class="w-[11%]">
-                                    <col class="w-[5%]">
-                                </colgroup>
-                                <thead>
-                                    <tr class="bg-slate-900 text-[11px] uppercase text-slate-200 tracking-wider font-bold">
-                                        <th class="p-2.5 font-bold text-center border-r border-slate-800">#</th>
-                                        <th class="p-2.5 font-bold border-r border-slate-800">Producto</th>
-                                        <th class="p-2.5 font-bold border-r border-slate-800">Almacén</th>
-                                        <th class="p-2.5 font-bold text-center border-r border-slate-800">Cant.</th>
-                                        <th class="p-2.5 font-bold text-center border-r border-slate-800">U.M.</th>
-                                        <th class="p-2.5 font-bold text-center border-r border-slate-800">Lote</th>
-                                        <th class="p-2.5 font-bold text-center border-r border-slate-800">Venc.</th>
-                                        <th class="p-2.5 font-bold text-right border-r border-slate-800">P. Unit.</th>
-                                        <th class="p-2.5 font-bold text-right border-r border-slate-800">Subtotal</th>
-                                        <th class="p-2.5 font-bold text-center">Acc.</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100" id="tbodyProductos">
-                                </tbody>
-                            </table>
+
+                    <!-- Buscador Inline Integrado (Clean & Industrial) -->
+                    <div class="flex flex-col sm:flex-row sm:items-end gap-3 mb-4 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+                        <div class="flex-1">
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+                                <i class="fas fa-search text-emerald-600 mr-1"></i> Buscar Producto o Materia Prima
+                            </label>
+                            <select id="selectProductoInline" class="w-full" style="width:100%"></select>
                         </div>
-                        <button type="button" id="btnAgregarFila" class="w-full py-2 border-2 border-dashed border-slate-300 rounded-lg text-xs text-slate-500 font-semibold hover:border-primary hover:text-primary hover:bg-primary-50 transition-all flex justify-center items-center gap-1">
-                            <i class="fas fa-plus-circle"></i> Buscar y agregar producto
+                        <button type="button" id="btnAgregarProductoInline" class="btn-primary h-10 px-5 whitespace-nowrap shadow-xs">
+                            <i class="fas fa-plus mr-1"></i>
+                            <span>Agregar</span>
                         </button>
                     </div>
-                </x-card>
+
+                    <div class="rounded-xl border border-slate-200 mb-3 overflow-x-auto shadow-xs scrollbar-thin">
+                        <table class="w-full text-left border-collapse min-w-[1150px]" id="tablaProductos">
+                            <thead>
+                                <tr class="bg-slate-800 text-[11px] uppercase text-white tracking-wider font-bold">
+                                    <th class="py-2.5 px-3 text-center border-r border-slate-700/60 w-12">#</th>
+                                    <th class="py-2.5 px-3 border-r border-slate-700/60 min-w-[280px]">Producto / Descripción</th>
+                                    <th class="py-2.5 px-3 border-r border-slate-700/60 w-48 min-w-[180px]">Almacén Destino</th>
+                                    <th class="py-2.5 px-3 text-center border-r border-slate-700/60 w-28 min-w-[90px]">Cant.</th>
+                                    <th class="py-2.5 px-3 text-center border-r border-slate-700/60 w-24 min-w-[80px]">U.M.</th>
+                                    <th class="py-2.5 px-3 text-center border-r border-slate-700/60 w-40 min-w-[145px]">Lote</th>
+                                    <th class="py-2.5 px-3 text-center border-r border-slate-700/60 w-36 min-w-[135px]">F. Venc.</th>
+                                    <th class="py-2.5 px-3 text-right border-r border-slate-700/60 w-32 min-w-[100px]">P. Unit.</th>
+                                    <th class="py-2.5 px-3 text-right border-r border-slate-700/60 w-32 min-w-[110px]">Subtotal</th>
+                                    <th class="py-2.5 px-3 text-center w-12">Acc.</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 bg-white" id="tbodyProductos">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
-            <div class="lg:col-span-4 xl:col-span-3">
+            <div class="lg:col-span-3 xl:col-span-3">
                 <div class="bg-slate-800 rounded-2xl shadow-lg border border-slate-700 sticky top-6 overflow-hidden">
                     <div class="p-6">
                         <h2 class="text-lg font-bold text-white mb-6 flex items-center gap-2">
@@ -268,14 +299,64 @@
     </form>
 </x-modal>
 
-<x-modal id="modalProducto" title="Buscar Producto" size="lg">
-    <div>
-        <select id="selectProductoModal" class="w-full" style="width:100%"></select>
+<x-modal id="modalGenerarCuotas" title="Generador de Cuotas al Crédito" size="md">
+    <div class="space-y-4">
+        <!-- Resumen de Total a Financiar -->
+        <div class="bg-slate-800 rounded-xl p-4 text-white flex items-center justify-between shadow-xs border border-slate-700">
+            <div>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-300 block">Total a Financiar:</span>
+                <span id="modalLblTotalFactura" class="text-2xl font-black text-emerald-400">S/ 0.00</span>
+            </div>
+            <div class="text-right">
+                <span class="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Condición</span>
+                <span class="inline-flex items-center gap-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                    <i class="fas fa-credit-card text-[10px]"></i> Crédito
+                </span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+                    N° de Cuotas <span class="text-red-500">*</span>
+                </label>
+                <input type="number" id="modalInputCuotas" min="1" max="60" value="2" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 text-center font-bold focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" placeholder="Ej. 3">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+                    Frecuencia (Días) <span class="text-red-500">*</span>
+                </label>
+                <input type="number" id="modalInputDias" min="1" max="365" value="30" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 text-center font-bold focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" placeholder="Ej. 30">
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+                Fecha Base de Inicio
+            </label>
+            <input type="date" id="modalInputFechaBase" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs text-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" value="{{ date('Y-m-d') }}">
+            <p class="text-[11px] text-slate-500 mt-1">Las fechas de pago se calcularán sumando los días sucesivamente a partir de esta fecha.</p>
+        </div>
+
+        <!-- Caja de Vista Previa en tiempo real -->
+        <div class="bg-emerald-50/80 border border-emerald-200/90 rounded-xl p-3.5 text-xs text-emerald-950 shadow-2xs">
+            <div class="flex items-center gap-1.5 font-bold mb-1 text-emerald-800">
+                <i class="fas fa-magic text-emerald-600"></i>
+                <span>Vista Previa del Plan de Pagos:</span>
+            </div>
+            <div id="modalTextoPreview" class="text-xs text-slate-700 pl-4 font-medium leading-relaxed">
+                Generando 2 cuotas de S/ 0.00 cada 30 días.
+            </div>
+        </div>
     </div>
-    <p class="text-xs text-slate-500 text-center mt-4">Seleccione un producto para agregarlo automáticamente a la tabla.</p>
+
     <x-slot:footer>
-        <button type="button" id="btnCerrarProducto" class="btn-secondary">
-            <i class="fas fa-check"></i> Finalizar
+        <button type="button" onclick="cerrarModal('modalGenerarCuotas')" class="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition shadow-2xs">
+            Cancelar
+        </button>
+        <button type="button" id="btnModalProcesar" class="btn-primary text-xs py-2 px-5 flex items-center gap-2 shadow-xs">
+            <i class="fas fa-cogs"></i>
+            <span>Procesar y Generar Cuotas</span>
         </button>
     </x-slot:footer>
 </x-modal>
@@ -310,45 +391,100 @@
         return m ? m[1] : text;
     }
 
-    function generarTemplateHTML(idx, codigo, nombre, um) {
+    function obtenerLoteFacturaActual() {
+        const s = ($('input[name="serie_documento"]').val() || '').trim().toUpperCase();
+        const n = ($('input[name="numero_documento"]').val() || '').trim();
+        if (s && n) return `${s}-${n}`;
+        if (s) return s;
+        if (n) return n;
+        return '';
+    }
+
+    function obtenerFechaEmisionActual() {
+        return ($('input[name="fecha_compra"]').val() || '').trim();
+    }
+
+    function actualizarLotesFilasAutomaticos() {
+        const idsGuias = $('#selectGuia').val();
+        if (idsGuias && idsGuias.length > 0) {
+            return;
+        }
+        const nuevoLote = obtenerLoteFacturaActual();
+        document.querySelectorAll('#tbodyProductos .fila-producto').forEach(fila => {
+            const inputLote = fila.querySelector('input[name*="[lote]"]');
+            if (inputLote) {
+                const esManual = inputLote.getAttribute('data-manual') === '1';
+                if (!esManual) {
+                    inputLote.value = nuevoLote;
+                }
+            }
+        });
+    }
+
+    function actualizarFechasFilasAutomaticos() {
+        const idsGuias = $('#selectGuia').val();
+        if (idsGuias && idsGuias.length > 0) {
+            return;
+        }
+        const nuevaFecha = obtenerFechaEmisionActual();
+        if (!nuevaFecha) return;
+        document.querySelectorAll('#tbodyProductos .fila-producto').forEach(fila => {
+            const inputVenc = fila.querySelector('input[name*="[fecha_vencimiento]"]');
+            if (inputVenc) {
+                const esManual = inputVenc.getAttribute('data-manual') === '1';
+                if (!esManual) {
+                    inputVenc.value = nuevaFecha;
+                }
+            }
+        });
+    }
+
+    function generarTemplateHTML(idx, codigo, nombre, um, loteCustom = null, vencCustom = null) {
         let opcionesAlmacen = almacenesData.map(a => `<option value="${a.codigo}" ${a.codigo === 'ALM04' ? 'selected' : ''}>${a.descripcion}</option>`).join('');
         let opcionesUM = unidadesData.map(u => `<option value="${u.codigo}" ${u.codigo === um ? 'selected' : ''}>${u.codigo}</option>`).join('');
+        const valorLote = loteCustom !== null ? loteCustom : obtenerLoteFacturaActual();
+        const valorVenc = vencCustom !== null ? vencCustom : obtenerFechaEmisionActual();
         return `
-        <tr class="fila-producto">
-            <td class="p-1 text-center">
+        <tr class="fila-producto hover:bg-slate-50/70 transition-colors">
+            <td class="py-2.5 px-3 text-center">
                 <span class="text-xs font-bold text-slate-500 row-item-number">${idx + 1}</span>
             </td>
-            <td class="p-1">
-                <span class="texto-prod text-xs font-medium text-slate-800 truncate block" title="${nombre}">${nombre}</span>
+            <td class="py-2.5 px-3">
+                <div class="leading-tight">
+                    <span class="texto-prod text-xs font-bold text-slate-900 block" title="${nombre}">${nombre}</span>
+                    <span class="text-[10px] text-slate-500 font-mono mt-0.5 block">${codigo}</span>
+                </div>
                 <input type="hidden" class="input-cod" name="productos[${idx}][codigo]" value="${codigo}">
             </td>
-            <td class="p-1">
-                <select class="w-full border border-slate-200 bg-slate-50 rounded-md text-xs select-alm" style="height:28px" name="productos[${idx}][codigo_almacen]">
+            <td class="py-2.5 px-3">
+                <select class="w-full border border-slate-300 bg-white rounded-lg text-xs px-2.5 py-1.5 select-alm focus:border-primary focus:ring-1 focus:ring-primary shadow-xs" name="productos[${idx}][codigo_almacen]">
                     ${opcionesAlmacen}
                 </select>
             </td>
-            <td class="p-1">
-                <input type="number" step="0.01" min="0.01" class="w-full border border-slate-200 bg-slate-50 text-center rounded-md text-xs input-cant" style="height:28px" name="productos[${idx}][cantidad]">
+            <td class="py-2.5 px-3">
+                <input type="number" step="0.01" min="0.01" class="w-full border border-slate-300 bg-white text-center rounded-lg text-xs font-semibold px-2 py-1.5 input-cant focus:border-primary focus:ring-1 focus:ring-primary shadow-xs" name="productos[${idx}][cantidad]" placeholder="0.00">
             </td>
-            <td class="p-1">
-                <select class="w-full border border-slate-200 bg-slate-50 rounded-md text-xs select-um" style="height:28px" name="productos[${idx}][codigo_unidad_medida]">
+            <td class="py-2.5 px-3 text-center">
+                <select class="w-full border border-slate-300 bg-white rounded-lg text-xs text-center px-1.5 py-1.5 select-um focus:border-primary focus:ring-1 focus:ring-primary shadow-xs" name="productos[${idx}][codigo_unidad_medida]">
                     ${opcionesUM}
                 </select>
             </td>
-            <td class="p-1">
-                <input type="text" class="w-full border border-slate-200 bg-slate-50 rounded-md text-xs text-center" style="height:28px" placeholder="Lote" name="productos[${idx}][lote]">
+            <td class="py-2.5 px-3">
+                <input type="text" class="w-full border border-slate-300 bg-white rounded-lg text-xs text-center uppercase px-2 py-1.5 focus:border-primary focus:ring-1 focus:ring-primary shadow-xs" placeholder="Lote..." name="productos[${idx}][lote]" value="${valorLote}" oninput="this.setAttribute('data-manual', this.value.trim() ? '1' : '0')">
             </td>
-            <td class="p-1">
-                <input type="date" class="w-full border border-slate-200 bg-slate-50 rounded-md text-xs text-center" style="height:28px" name="productos[${idx}][fecha_vencimiento]" max="{{ date('Y-m-d') }}">
+            <td class="py-2.5 px-3">
+                <input type="date" class="w-full border border-slate-300 bg-white rounded-lg text-xs text-center px-1.5 py-1.5 focus:border-primary focus:ring-1 focus:ring-primary shadow-xs" name="productos[${idx}][fecha_vencimiento]" value="${valorVenc}" oninput="this.setAttribute('data-manual', this.value.trim() ? '1' : '0')">
             </td>
-            <td class="p-1">
-                <input type="number" step="any" min="0" class="w-full border border-slate-200 bg-slate-50 text-right rounded-md text-xs text-primary font-semibold input-prec" style="height:28px" name="productos[${idx}][precio]" placeholder="0.00">
+            <td class="py-2.5 px-3">
+                <input type="number" step="any" min="0" class="w-full border border-slate-300 bg-white text-right rounded-lg text-xs text-primary font-bold px-2 py-1.5 input-prec focus:border-primary focus:ring-1 focus:ring-primary shadow-xs" name="productos[${idx}][precio]" placeholder="0.00">
             </td>
-            <td class="p-1">
-                <input type="number" step="0.01" min="0" class="w-full border border-slate-200 bg-white text-right rounded-md text-xs font-bold text-slate-800 input-sub focus:ring-primary focus:border-primary shadow-xs" style="height:28px" name="productos[${idx}][subtotal]" value="0.00" placeholder="0.00">
+            <td class="py-2.5 px-3">
+                <input type="number" step="0.01" min="0" class="w-full border border-slate-300 bg-slate-50 text-right rounded-lg text-xs font-black text-slate-900 px-2 py-1.5 input-sub focus:border-primary focus:ring-1 focus:ring-primary shadow-xs" name="productos[${idx}][subtotal]" value="0.00" placeholder="0.00">
             </td>
-            <td class="p-1 text-center">
-                <button type="button" class="text-slate-400 hover:text-red-500 btn-del text-xs" title="Eliminar"><i class="fas fa-trash-alt"></i></button>
+            <td class="py-2.5 px-3 text-center">
+                <button type="button" class="text-slate-400 hover:text-red-500 hover:bg-red-50 w-7 h-7 rounded-md inline-flex items-center justify-center btn-del transition text-xs" title="Eliminar fila">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
             </td>
         </tr>
     `;
@@ -383,10 +519,6 @@
         const um = producto.codigo_unidad_medida || 'CAJ';
         const html = generarTemplateHTML(idx, codigo, nombre, um);
         tablaBody.insertAdjacentHTML('beforeend', html);
-    }
-
-    function cerrarModalProducto() {
-        cerrarModal('modalProducto');
     }
 
     function recalcularTotales() {
@@ -573,9 +705,100 @@
         recalcularCuadraturaCuotas();
     }
 
+    function procesarGeneracionCuotas(numCuotas, diasIntervalo, fechaBase) {
+        numCuotas = parseInt(numCuotas) || 1;
+        diasIntervalo = parseInt(diasIntervalo) || 30;
+        
+        if (numCuotas < 1) {
+            if (typeof window.toast === 'function') window.toast('Ingrese al menos 1 cuota.', 'warning');
+            else alert('Ingrese al menos 1 cuota.');
+            return false;
+        }
+
+        if (!fechaBase) {
+            fechaBase = obtenerFechaEmisionActual() || new Date().toISOString().split('T')[0];
+        }
+
+        const totalFactura = parseFloat(document.getElementById('h_total').value) || 0;
+        const tbody = document.getElementById('tbodyCuotas');
+        if (!tbody) return false;
+
+        // Limpiar filas de cuotas previas
+        tbody.innerHTML = '';
+        cuotaIdx = 0;
+
+        let montoBase = 0;
+        let restoCentavos = 0;
+
+        if (totalFactura > 0) {
+            montoBase = Math.floor((totalFactura / numCuotas) * 100) / 100;
+            restoCentavos = Math.round((totalFactura - (montoBase * numCuotas)) * 100) / 100;
+        }
+
+        let ultimaFecha = fechaBase;
+
+        for (let i = 1; i <= numCuotas; i++) {
+            // Calcular fecha de vencimiento: fechaBase + (i * diasIntervalo)
+            const d = new Date(fechaBase + 'T00:00:00');
+            d.setDate(d.getDate() + (i * diasIntervalo));
+            const fechaStr = d.toISOString().split('T')[0];
+            ultimaFecha = fechaStr;
+
+            // Distribuir el remanente de centavos en la primera cuota para cuadratura 100% exacta
+            let montoCuota = montoBase;
+            if (i === 1) {
+                montoCuota = Math.round((montoBase + restoCentavos) * 100) / 100;
+            }
+            const montoStr = totalFactura > 0 ? montoCuota.toFixed(2) : '';
+
+            const idx = cuotaIdx++;
+            const html = generarTemplateFilaCuota(idx, i, fechaStr, montoStr);
+            tbody.insertAdjacentHTML('beforeend', html);
+        }
+
+        // Sincronizar fecha de vencimiento principal de la compra
+        $('#inputFechaVencimiento').val(ultimaFecha);
+
+        renumerarCuotas();
+        recalcularCuadraturaCuotas();
+
+        // Sincronizar inputs rápidos y modal
+        $('#quickNumCuotas').val(numCuotas);
+        $('#quickDiasIntervalo').val(diasIntervalo);
+        $('#modalInputCuotas').val(numCuotas);
+        $('#modalInputDias').val(diasIntervalo);
+        $('#modalInputFechaBase').val(fechaBase);
+
+        if (typeof window.toast === 'function') {
+            window.toast(`Se generaron ${numCuotas} cuota(s) correctamente.`, 'success');
+        }
+        return true;
+    }
+
+    function actualizarPreviewModal() {
+        const totalFactura = parseFloat(document.getElementById('h_total').value) || 0;
+        const moneda = $('#selectMoneda').val() === 'USD' ? '$ ' : 'S/ ';
+        $('#modalLblTotalFactura').text(moneda + totalFactura.toFixed(2));
+
+        const numCuotas = parseInt($('#modalInputCuotas').val()) || 1;
+        const dias = parseInt($('#modalInputDias').val()) || 30;
+        let fechaBase = $('#modalInputFechaBase').val() || obtenerFechaEmisionActual() || new Date().toISOString().split('T')[0];
+
+        let montoAprox = numCuotas > 0 ? (totalFactura / numCuotas).toFixed(2) : '0.00';
+
+        const dUltima = new Date(fechaBase + 'T00:00:00');
+        dUltima.setDate(dUltima.getDate() + (numCuotas * dias));
+        const fechaUltimaStr = dUltima.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+        $('#modalTextoPreview').html(`
+            Generando <strong class="text-slate-900">${numCuotas} cuota(s)</strong> de aprox. <strong class="text-emerald-700">${moneda}${montoAprox}</strong> cada <strong class="text-slate-900">${dias} días</strong>.<br>
+            <span class="text-slate-500 text-[11px]">Última fecha de vencimiento: <strong>${fechaUltimaStr}</strong></span>
+        `);
+    }
+
     $(document).ready(function () {
         tablaBody = document.getElementById('tbodyProductos');
-        searchUrl = '/productos/search-ajax';
+        searchUrl = '/productos/search-ajax?sin_actividades=1';
         almacenesData = {!! json_encode($almacenes->map(fn($a) => ['codigo' => $a->codigo_almacen, 'descripcion' => $a->descripcion])->all()) !!};
         unidadesData = {!! json_encode($unidades_medida->map(fn($u) => ['codigo' => $u->codigo, 'descripcion' => $u->descripcion])->all()) !!};
 
@@ -587,38 +810,58 @@
         }
 
         if (typeof $().select2 !== 'undefined') {
-            $('#selectProductoModal').select2({
+            const select2Config = {
                 ajax: {
                     url: searchUrl,
                     dataType: 'json',
-                    delay: 300,
+                    delay: 250,
                     data: function(p) { return {q: p.term}; },
                     processResults: function(d) { return {results: d}; },
                     cache: true
                 },
                 minimumInputLength: 0,
-                placeholder: 'Buscar por código o nombre...',
+                placeholder: 'Buscar producto por código o descripción...',
                 width: '100%',
-                dropdownParent: $('#modalProducto')
+                templateResult: function(item) {
+                    if (!item.id) return item.text;
+                    const desc = item.text.replace(/\[.*?\]\s*/, '');
+                    const tipo = item.descripcion_tipo_producto || item.codigo_tipo_producto || '';
+                    const um = item.unidad_medida || item.codigo_unidad_medida || '';
+                    return $(`
+                        <div class="flex items-center justify-between py-1 px-0.5">
+                            <div class="truncate mr-2">
+                                <span class="font-bold text-slate-900">${item.id}</span>
+                                <span class="text-slate-700 ml-1.5 font-medium">${desc}</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                ${tipo ? `<span class="text-[10px] uppercase font-bold px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded border border-slate-200">${tipo}</span>` : ''}
+                                ${um ? `<span class="text-[10px] font-bold px-1.5 py-0.5 bg-emerald-50 text-emerald-800 rounded border border-emerald-200">${um}</span>` : ''}
+                            </div>
+                        </div>
+                    `);
+                },
+                templateSelection: function(item) {
+                    return item.text || item.id;
+                }
+            };
+
+            // Inicializar Buscador Inline
+            $('#selectProductoInline').select2(select2Config);
+            $('#selectProductoInline').on('select2:select', function(e) {
+                agregarFila(e.params.data);
+                $('#selectProductoInline').val(null).trigger('change');
             });
 
-            $('#selectProductoModal').on('select2:select', function(e) {
-                agregarFila(e.params.data);
-                $('#selectProductoModal').val(null).trigger('change');
+            $('#btnAgregarProductoInline').on('click', function() {
+                const data = $('#selectProductoInline').select2('data');
+                if (data && data.length > 0 && data[0].id) {
+                    agregarFila(data[0]);
+                    $('#selectProductoInline').val(null).trigger('change');
+                } else {
+                    $('#selectProductoInline').select2('open');
+                }
             });
         }
-
-        $('#btnCerrarProducto').on('click', cerrarModalProducto);
-
-        $('#btnAgregarFila').on('click', function () {
-            $('#selectProductoModal').val(null).trigger('change');
-            abrirModal('modalProducto');
-            setTimeout(() => {
-                if (typeof $('#selectProductoModal').select2 === 'function') {
-                    $('#selectProductoModal').select2('open');
-                }
-            }, 250);
-        });
 
         let tipoCambioActual = "{{ \App\Models\ParametroSistema::where('codigo_parametro', 'TIPO_CAMBIO_USD')->value('valor') ?? '1.000' }}";
         
@@ -656,18 +899,33 @@
             }
         };
 
+        const syncLotesYDoc = function () {
+            formatNumeroDoc();
+            actualizarLotesFilasAutomaticos();
+        };
+
         if (inputNumDoc) {
-            inputNumDoc.addEventListener('blur', formatNumeroDoc);
-            inputNumDoc.addEventListener('change', formatNumeroDoc);
+            inputNumDoc.addEventListener('input', actualizarLotesFilasAutomaticos);
+            inputNumDoc.addEventListener('blur', syncLotesYDoc);
+            inputNumDoc.addEventListener('change', syncLotesYDoc);
         }
 
         if (inputSerieDoc) {
             inputSerieDoc.addEventListener('input', function () {
                 this.value = this.value.toUpperCase();
+                actualizarLotesFilasAutomaticos();
             });
             inputSerieDoc.addEventListener('blur', function () {
                 this.value = this.value.trim().toUpperCase();
+                actualizarLotesFilasAutomaticos();
             });
+        }
+
+        const inputFechaCompra = document.querySelector('input[name="fecha_compra"]');
+        if (inputFechaCompra) {
+            inputFechaCompra.addEventListener('input', actualizarFechasFilasAutomaticos);
+            inputFechaCompra.addEventListener('change', actualizarFechasFilasAutomaticos);
+            inputFechaCompra.addEventListener('blur', actualizarFechasFilasAutomaticos);
         }
 
         // Lógica de Condición de Pago y Cuotas al Crédito
@@ -678,8 +936,15 @@
             if (condicion === 'CREDITO') {
                 $('#seccionCuotasCredito :input').prop('disabled', false);
                 seccionCuotas.slideDown(200);
+
+                // Si aún no hay cuotas registradas, abrir el modal asistente para configurar cuotas
                 if ($('#tbodyCuotas .fila-cuota').length === 0) {
-                    agregarFilaCuota();
+                    $('#modalInputCuotas').val($('#quickNumCuotas').val() || 2);
+                    $('#modalInputDias').val($('#quickDiasIntervalo').val() || 30);
+                    $('#modalInputFechaBase').val($('input[name="fecha_compra"]').val() || '{{ date('Y-m-d') }}');
+                    actualizarPreviewModal();
+                    abrirModal('modalGenerarCuotas');
+                    setTimeout(() => $('#modalInputCuotas').focus(), 250);
                 } else {
                     recalcularCuadraturaCuotas();
                 }
@@ -690,6 +955,37 @@
                 $('#inputFechaVencimiento').val(fechaEmision);
             }
         });
+
+        // Botón Procesar Rápido (Inline)
+        $('#btnProcesarCuotasQuick').on('click', function() {
+            const numCuotas = $('#quickNumCuotas').val();
+            const dias = $('#quickDiasIntervalo').val();
+            const fechaBase = $('input[name="fecha_compra"]').val() || '{{ date('Y-m-d') }}';
+            procesarGeneracionCuotas(numCuotas, dias, fechaBase);
+        });
+
+        // Botón Abrir Asistente Modal de Cuotas
+        $('#btnAbrirModalCuotas').on('click', function() {
+            $('#modalInputCuotas').val($('#quickNumCuotas').val() || 2);
+            $('#modalInputDias').val($('#quickDiasIntervalo').val() || 30);
+            $('#modalInputFechaBase').val($('input[name="fecha_compra"]').val() || '{{ date('Y-m-d') }}');
+            actualizarPreviewModal();
+            abrirModal('modalGenerarCuotas');
+            setTimeout(() => $('#modalInputCuotas').focus(), 250);
+        });
+
+        // Botón Procesar en el Modal
+        $('#btnModalProcesar').on('click', function() {
+            const numCuotas = $('#modalInputCuotas').val();
+            const dias = $('#modalInputDias').val();
+            const fechaBase = $('#modalInputFechaBase').val();
+            if (procesarGeneracionCuotas(numCuotas, dias, fechaBase)) {
+                cerrarModal('modalGenerarCuotas');
+            }
+        });
+
+        // Actualización dinámica de la vista previa en el modal
+        $('#modalInputCuotas, #modalInputDias, #modalInputFechaBase').on('input change', actualizarPreviewModal);
 
         $('input[name="fecha_compra"]').on('change', function() {
             if ($('#selectCondicionPago').val() === 'CONTADO') {
@@ -843,11 +1139,41 @@
 
                 // Llenar detalles iterando sobre cada guía y sus detalles
                 dataArray.forEach(data => {
+                    let fechaGuiaStr = '';
+                    if (data.fecha_emision) {
+                        const fPart = data.fecha_emision.split('T')[0];
+                        const p = fPart.split('-');
+                        if (p.length === 3) {
+                            fechaGuiaStr = `${p[2]}${p[1]}${p[0]}`; // DDMMYYYY ej. 13062026
+                        }
+                    }
+
                     data.detalles.forEach(d => {
                         const idx = filaIdx++;
                         const nombre = d.producto ? d.producto.descripcion : d.descripcion_producto;
                         let opcionesAlmacen = almacenesData.map(a => `<option value="${a.codigo}" ${a.codigo === d.codigo_almacen ? 'selected' : ''}>${a.descripcion}</option>`).join('');
                         let opcionesUM = unidadesData.map(u => `<option value="${u.codigo}" ${u.codigo === d.codigo_unidad_medida ? 'selected' : ''}>${u.codigo}</option>`).join('');
+                        
+                        let loteGuia = '';
+                        if (d.lote && d.lote.trim() !== '') {
+                            loteGuia = d.lote.trim();
+                        } else {
+                            const numGuia = (data.numero_guia || '').trim().toUpperCase();
+                            if (numGuia && fechaGuiaStr) {
+                                loteGuia = `${numGuia}-${fechaGuiaStr}`;
+                            } else if (numGuia) {
+                                loteGuia = numGuia;
+                            }
+                        }
+                        
+                        let fechaVencGuia = '';
+                        if (d.fecha_vencimiento) {
+                            fechaVencGuia = d.fecha_vencimiento.split('T')[0];
+                        } else if (data.fecha_emision) {
+                            fechaVencGuia = data.fecha_emision.split('T')[0];
+                        } else {
+                            fechaVencGuia = obtenerFechaEmisionActual();
+                        }
                         
                         const html = `
                         <tr class="fila-producto bg-yellow-50/30">
@@ -872,10 +1198,10 @@
                                 </select>
                             </td>
                             <td class="p-1">
-                                <input type="text" class="w-full border border-slate-200 bg-slate-100 rounded-md text-xs text-center" style="height:28px" name="productos[${idx}][lote]" value="${d.lote || ''}" readonly tabindex="-1">
+                                <input type="text" class="w-full border border-slate-200 bg-slate-100 rounded-md text-xs text-center uppercase" style="height:28px" name="productos[${idx}][lote]" value="${loteGuia}" readonly tabindex="-1">
                             </td>
                             <td class="p-1">
-                                <input type="date" class="w-full border border-slate-200 bg-slate-100 rounded-md text-xs text-center" style="height:28px" name="productos[${idx}][fecha_vencimiento]" value="${d.fecha_vencimiento ? d.fecha_vencimiento.split('T')[0] : ''}" readonly tabindex="-1" max="{{ date('Y-m-d') }}">
+                                <input type="date" class="w-full border border-slate-200 bg-slate-100 rounded-md text-xs text-center" style="height:28px" name="productos[${idx}][fecha_vencimiento]" value="${fechaVencGuia}" readonly tabindex="-1">
                             </td>
                         <td class="p-1">
                             <input type="number" step="any" min="0" class="w-full border border-primary bg-white text-right rounded-md text-xs text-primary font-bold input-prec focus:ring-primary shadow-inner" style="height:28px" name="productos[${idx}][precio]" placeholder="0.00" required autofocus>

@@ -14,12 +14,17 @@ class DashboardController extends Controller
 
         if ($rango === 'hoy') {
             $fecha_inicio = now()->startOfDay();
+            $fecha_fin = now()->endOfDay();
         } elseif ($rango === 'semana') {
             $fecha_inicio = now()->startOfWeek();
+            $fecha_fin = now()->endOfDay();
+        } elseif ($rango === 'mes_anterior') {
+            $fecha_inicio = now()->subMonth()->startOfMonth();
+            $fecha_fin = now()->subMonth()->endOfMonth();
         } else {
             $fecha_inicio = now()->startOfMonth();
+            $fecha_fin = now()->endOfDay();
         }
-        $fecha_fin = now()->endOfDay();
 
         // 1. Órdenes Activas
         $ordenesActivas = DB::table('orden_produccion_global')

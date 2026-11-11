@@ -86,6 +86,10 @@ class GuiaRemisionCompraController extends Controller
 
                 $unidad_medida = $item['codigo_unidad_medida'] ?? ($producto->unidad_medida_codigo ?? 'NIU');
 
+                $fechaGuiaStr = !empty($guia->fecha_emision) ? date('dmY', strtotime($guia->fecha_emision)) : '';
+                $loteGuiaDefault = strtoupper(trim($guia->numero_guia)) . ($fechaGuiaStr ? ('-' . $fechaGuiaStr) : '');
+                $loteItem = !empty(trim($item['lote'] ?? '')) ? trim($item['lote']) : $loteGuiaDefault;
+
                 $detalle = DetalleGuiaCompra::create([
                     'id_guia' => $guia->id_guia,
                     'codigo_producto' => $item['codigo_producto'],
@@ -93,8 +97,8 @@ class GuiaRemisionCompraController extends Controller
                     'cantidad' => $item['cantidad'],
                     'codigo_unidad_medida' => $unidad_medida,
                     'codigo_almacen' => $almacen_destino,
-                    'lote' => $item['lote'] ?? null,
-                    'fecha_vencimiento' => $item['fecha_vencimiento'] ?? null
+                    'lote' => $loteItem,
+                    'fecha_vencimiento' => !empty($item['fecha_vencimiento']) ? $item['fecha_vencimiento'] : $guia->fecha_emision
                 ]);
 
                 // 3. Obtener el Costo Promedio Actual para valorizar la entrada de la Guía
@@ -109,8 +113,6 @@ class GuiaRemisionCompraController extends Controller
                 // Si es el primer ingreso absoluto y el costo promedio es 0, usamos 0.
                 // Cuando llegue la Factura vinculada, se regularizará si es necesario o en la refacturación.
 
-                $loteItem = !empty($item['lote']) ? $item['lote'] : null;
-
                 // 5. Obtener Inventario actual por producto, almacen y lote
                 $inventario = DB::table('inventario')
                     ->where('codigo_producto', $item['codigo_producto'])
@@ -118,7 +120,7 @@ class GuiaRemisionCompraController extends Controller
                     ->where('lote', $loteItem)
                     ->first();
 
-                // 4. Calcular Costos usando KardexService
+                // 4. Calcular Costos usando KardexService (acumula en Kardex)
                 $costos = $kardexService->calcularCostos(
                     $item['codigo_producto'], 
                     $almacen_destino,
@@ -128,15 +130,15 @@ class GuiaRemisionCompraController extends Controller
                     $inventario ? $inventario->stock_actual : 0  // saldo actual
                 );
 
-                $nuevo_saldo = $costos['cantidad_saldo'];
+                $stock_lote_actual = $inventario ? floatval($inventario->stock_actual) : 0;
+                $nuevo_saldo_lote = $stock_lote_actual + floatval($item['cantidad']);
 
-                // 5. Actualizar tabla Inventario (stock físico)
-
+                // 5. Actualizar tabla Inventario (stock físico por lote)
                 if ($inventario) {
                     DB::table('inventario')
                         ->where('id_inventario', $inventario->id_inventario)
                         ->update([
-                            'stock_actual' => $nuevo_saldo,
+                            'stock_actual' => $nuevo_saldo_lote,
                             'costo_promedio' => $costos['costo_promedio'],
                             'fecha_ultimo_movimiento' => now(),
                             'usuario_ultimo_movimiento' => Auth::id(),
@@ -149,7 +151,7 @@ class GuiaRemisionCompraController extends Controller
                         'codigo_unidad_medida' => $producto->unidad_medida_codigo ?? 'NIU',
                         'lote' => $loteItem,
                         'fecha_vencimiento' => !empty($item['fecha_vencimiento']) ? $item['fecha_vencimiento'] : null,
-                        'stock_actual' => $nuevo_saldo,
+                        'stock_actual' => $nuevo_saldo_lote,
                         'stock_minimo' => 0,
                         'costo_promedio' => $costos['costo_promedio'],
                         'fecha_ultimo_movimiento' => now(),
@@ -172,10 +174,10 @@ class GuiaRemisionCompraController extends Controller
                     'cantidad_salida'      => 0,
                     'costo_salida'         => 0,
                     'total_salida'         => 0,
-                    'cantidad_saldo'       => $nuevo_saldo,
+                    'cantidad_saldo'       => $costos['cantidad_saldo'],
                     'costo_promedio'       => $costos['costo_promedio'],
                     'total_saldo'          => $costos['total_saldo'],
-                    'lote'                 => $item['lote'] ?? null,
+                    'lote'                 => $loteItem,
                     'usuario_registro'     => Auth::id()
                 ]);
 
@@ -184,7 +186,7 @@ class GuiaRemisionCompraController extends Controller
                     'codigo_almacen'       => $almacen_destino,
                     'codigo_producto'      => $item['codigo_producto'],
                     'codigo_unidad_medida' => $unidad_medida,
-                    'lote'                 => $item['lote'] ?? null,
+                    'lote'                 => $loteItem,
                     'fecha_vencimiento'    => $item['fecha_vencimiento'] ?? null,
                     'tipo_movimiento'      => 'INGRESO',
                     'cantidad'             => $item['cantidad'],
@@ -367,7 +369,7 @@ class GuiaRemisionCompraController extends Controller
                     'cantidad_salida'      => $detalle_antiguo->cantidad,
                     'costo_salida'         => $costoPromedioActual,
                     'total_salida'         => $detalle_antiguo->cantidad * $costoPromedioActual,
-                    'cantidad_saldo'       => $nuevo_saldo,
+                    'cantidad_saldo'       => $costos['cantidad_saldo'],
                     'costo_promedio'       => $costos['costo_promedio'],
                     'total_saldo'          => $costos['total_saldo'],
                     'observaciones'        => 'EXTORNO POR EDICION DE GUIA',
@@ -392,6 +394,10 @@ class GuiaRemisionCompraController extends Controller
                 $producto = Producto::where('codigo', $item['codigo_producto'])->first();
                 $unidad_medida = $item['codigo_unidad_medida'] ?? ($producto->unidad_medida_codigo ?? 'NIU');
 
+                $fechaGuiaStr = !empty($guia->fecha_emision) ? date('dmY', strtotime($guia->fecha_emision)) : '';
+                $loteGuiaDefault = strtoupper(trim($guia->numero_guia)) . ($fechaGuiaStr ? ('-' . $fechaGuiaStr) : '');
+                $loteItem = !empty(trim($item['lote'] ?? '')) ? trim($item['lote']) : $loteGuiaDefault;
+
                 DetalleGuiaCompra::create([
                     'id_guia' => $guia->id_guia,
                     'codigo_producto' => $item['codigo_producto'],
@@ -399,11 +405,10 @@ class GuiaRemisionCompraController extends Controller
                     'cantidad' => $item['cantidad'],
                     'codigo_unidad_medida' => $unidad_medida,
                     'codigo_almacen' => $almacen_destino,
-                    'lote' => $item['lote'] ?? null,
-                    'fecha_vencimiento' => $item['fecha_vencimiento'] ?? null
+                    'lote' => $loteItem,
+                    'fecha_vencimiento' => !empty($item['fecha_vencimiento']) ? $item['fecha_vencimiento'] : $guia->fecha_emision
                 ]);
 
-                $loteItem = !empty($item['lote']) ? $item['lote'] : null;
                 $inventario = DB::table('inventario')
                     ->where('codigo_producto', $item['codigo_producto'])
                     ->where('codigo_almacen', $almacen_destino)
@@ -463,10 +468,10 @@ class GuiaRemisionCompraController extends Controller
                     'cantidad_salida'      => 0,
                     'costo_salida'         => 0,
                     'total_salida'         => 0,
-                    'cantidad_saldo'       => $nuevo_saldo,
+                    'cantidad_saldo'       => $costos['cantidad_saldo'],
                     'costo_promedio'       => $costos['costo_promedio'],
                     'total_saldo'          => $costos['total_saldo'],
-                    'lote'                 => $item['lote'] ?? null,
+                    'lote'                 => $loteItem,
                     'observaciones'        => 'INGRESO POR EDICION DE GUIA',
                     'usuario_registro'     => Auth::id()
                 ]);
@@ -512,14 +517,20 @@ class GuiaRemisionCompraController extends Controller
                     continue; // Ya fue extornado manualmente, saltar validación de stock
                 }
 
+                $loteIngresoVal = !empty($ingreso->lote) ? $ingreso->lote : null;
                 $inventarioDestino = DB::table('inventario')
                     ->where('codigo_producto', $ingreso->codigo_producto)
                     ->where('codigo_almacen', $ingreso->codigo_almacen)
+                    ->when($loteIngresoVal, function($q) use ($loteIngresoVal) {
+                        $q->where('lote', $loteIngresoVal);
+                    }, function($q) {
+                        $q->whereNull('lote');
+                    })
                     ->lockForUpdate()
                     ->first();
 
-                if (!$inventarioDestino || $inventarioDestino->stock_actual < $ingreso->cantidad_entrada) {
-                    throw new \Exception("Stock insuficiente en {$ingreso->codigo_almacen} para el producto {$ingreso->codigo_producto}. Ya fue consumido o transferido, extorne los consumos posteriores primero.");
+                if (!$inventarioDestino || round(floatval($inventarioDestino->stock_actual), 4) < round(floatval($ingreso->cantidad_entrada), 4)) {
+                    throw new \Exception("Stock insuficiente en {$ingreso->codigo_almacen} para el producto {$ingreso->codigo_producto} (Lote: {$ingreso->lote}). Ya fue consumido o transferido, extorne los consumos posteriores primero.");
                 }
             }
 

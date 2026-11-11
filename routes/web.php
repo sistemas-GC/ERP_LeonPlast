@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\DB;
 // Rutas para usuarios NO autenticados
 Route::middleware('guest')->group(function () {
     Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
+    Route::get('/login', [AuthController::class, 'showLoginForm']);
     Route::post('/login', [AuthController::class, 'login'])->name('login.post');
     Route::view('/forgot-password', 'auth.forgot-password')->name('password.request');
 });
@@ -164,6 +165,8 @@ Route::middleware('auth')->group(function () {
 
         // 2. Kardex / Historial de Movimientos
         Route::get('/kardex', [InventarioController::class, 'kardex'])->name('inventario.kardex');
+        Route::get('/kardex-fisico', [InventarioController::class, 'kardexFisico'])->name('inventario.kardex_fisico');
+        Route::get('/kardex-fisico/exportar/excel', [InventarioController::class, 'exportarKardexFisicoExcel'])->name('inventario.kardex_fisico.exportar.excel');
         Route::get('/kardex/{id}/desglose-costo', [InventarioController::class, 'kardexDesgloseCosto'])->name('inventario.kardex.desgloseCosto');
         Route::get('/kardex/exportar/excel', [InventarioController::class, 'exportarKardexExcel'])->name('inventario.kardex.exportar.excel');
         Route::get('/kardex/exportar/pdf', [InventarioController::class, 'exportarKardexPdf'])->name('inventario.kardex.exportar.pdf');
@@ -217,6 +220,9 @@ Route::middleware('auth')->group(function () {
         });
     });
 
+    // Alias directo para Reporte PDF de Control de Producción
+    Route::get('mermas/reporte-pdf/{idop}', [\App\Http\Controllers\MermaController::class, 'reportePdf']);
+
     // =========================================================
     // MÓDULO DE PRODUCCIÓN
     // =========================================================
@@ -243,10 +249,12 @@ Route::middleware('auth')->group(function () {
         Route::post('ordenes/{orden}/procesos/{proceso}/componentes', [OrdenProcesoController::class, 'storeComponentes'])->name('ordenes.procesos.componentes.store');
         Route::post('ordenes/{orden}/procesos/{proceso}/ejecucion-agrupada', [OrdenProcesoController::class, 'storeEjecucionAgrupada'])->name('ordenes.procesos.ejecucion_agrupada.store');
         Route::delete('ordenes/{orden}/procesos/{proceso}/componentes/{componente}', [OrdenProcesoController::class, 'destroyComponente'])->name('ordenes.procesos.componentes.destroy');
+        Route::delete('ordenes/{orden}/procesos/{proceso}/carga', [OrdenProcesoController::class, 'destroyCarga'])->name('ordenes.procesos.carga.destroy');
         Route::put('ordenes/{orden}/procesos/{proceso}/componentes/{componente}', [OrdenProcesoController::class, 'updateComponente'])->name('ordenes.procesos.componentes.update');
         Route::post('ordenes/{orden}/procesos/{proceso}/finalizar', [OrdenProcesoController::class, 'finalizar'])->name('ordenes.procesos.finalizar');
         Route::get('api/formulas/composicion', [OrdenProcesoController::class, 'getFormulaComponents'])->name('api.formulas.composicion');
         Route::get('api/verificar-stock', [OrdenProcesoController::class, 'verificarStock'])->name('api.verificar_stock');
+        Route::get('api/encartonado/ops-disponibles', [OrdenProcesoController::class, 'getOpsDisponiblesEncartonado'])->name('api.encartonado.ops_disponibles');
         
         // Mermas y Scrap
         Route::get('mermas/opciones', [\App\Http\Controllers\MermaController::class, 'opciones'])->name('mermas.opciones');

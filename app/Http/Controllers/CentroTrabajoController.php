@@ -19,11 +19,7 @@ class CentroTrabajoController extends Controller
             });
         }
 
-        $centros = $query->orderBy('descripcion', 'asc')->paginate(10);
-
-        if ($request->ajax()) {
-            return view('tablas_maestras.centros_trabajo.table', compact('centros'))->render();
-        }
+        $centros = $query->orderBy('descripcion', 'asc')->paginate(10)->appends($request->all());
 
         return view('tablas_maestras.centros_trabajo.index', compact('centros', 'search'));
     }

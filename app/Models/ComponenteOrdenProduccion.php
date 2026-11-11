@@ -41,8 +41,12 @@ class ComponenteOrdenProduccion extends Model
         'hora_inicio_maquina',
         'fecha_fin_maquina',
         'hora_fin_maquina',
+        'inyectada_inicial',
+        'inyectada_final',
         'estado',
-        'tipo_operacion', 'observacion'
+        'numero_ot',
+        'tipo_operacion',
+        'observacion'
     ];
 
     public function orden()

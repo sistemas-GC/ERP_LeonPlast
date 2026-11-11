@@ -79,29 +79,34 @@
                         </h2>
                     </div>
                     <div class="p-6">
-                        <div class="overflow-x-auto mb-3">
+                        <!-- Buscador Inline Integrado (Clean & Industrial) -->
+                        <div class="flex flex-col sm:flex-row sm:items-end gap-3 mb-4 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/80">
+                            <div class="flex-1">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+                                    <i class="fas fa-search text-emerald-600 mr-1"></i> Buscar Materia Prima o Insumo (Almacén de Materias Primas)
+                                </label>
+                                <select id="selectProductoInline" class="w-full" style="width:100%"></select>
+                            </div>
+                            <button type="button" id="btnAgregarProductoInline" class="btn-primary h-10 px-5 whitespace-nowrap shadow-xs">
+                                <i class="fas fa-plus mr-1"></i>
+                                <span>Agregar</span>
+                            </button>
+                        </div>
+
+                        <div class="overflow-x-auto mb-3 rounded-xl border border-slate-200 shadow-2xs">
                             <table class="w-full text-left text-xs" id="tablaProductos">
-                                <colgroup>
-                                    <col class="w-[50%]">
-                                    <col class="w-[20%]">
-                                    <col class="w-[15%]">
-                                    <col class="w-[15%]">
-                                </colgroup>
                                 <thead>
-                                    <tr class="bg-slate-900 text-[11px] uppercase text-slate-200 tracking-wider font-bold">
-                                        <th class="p-2.5 font-bold border-r border-slate-800">Producto</th>
-                                        <th class="p-2.5 font-bold text-center border-r border-slate-800">Cantidad</th>
-                                        <th class="p-2.5 font-bold text-center border-r border-slate-800">U.M.</th>
-                                        <th class="p-2.5 font-bold text-center"><i class="fas fa-cog"></i></th>
+                                    <tr class="bg-slate-800 text-[11px] uppercase text-white tracking-wider font-bold">
+                                        <th class="py-2.5 px-3 font-bold border-r border-slate-700/60">Materia Prima / Insumo</th>
+                                        <th class="py-2.5 px-3 font-bold text-center border-r border-slate-700/60 w-36">Cantidad Solicitada</th>
+                                        <th class="py-2.5 px-3 font-bold text-center border-r border-slate-700/60 w-24">U.M.</th>
+                                        <th class="py-2.5 px-3 font-bold text-center w-12"><i class="fas fa-cog"></i></th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-slate-100" id="tbodyProductos">
+                                <tbody class="divide-y divide-slate-100 bg-white" id="tbodyProductos">
                                 </tbody>
                             </table>
                         </div>
-                        <button type="button" id="btnAgregarFila" class="w-full py-2 border-2 border-dashed border-slate-300 rounded-lg text-xs text-slate-500 font-semibold hover:border-primary hover:text-primary hover:bg-primary-50 transition-all flex justify-center items-center gap-1">
-                            <i class="fas fa-plus-circle"></i> Agregar producto
-                        </button>
                     </div>
                 </x-card>
             </div>
@@ -123,69 +128,74 @@
     </form>
 </div>
 
-<x-modal id="modalProducto" title="Seleccionar Producto">
-    <div class="space-y-4">
-        <x-form-group label="Buscar producto">
-            <select id="selectProductoModal" class="w-full input-field" style="width: 100%;"></select>
-        </x-form-group>
-        <x-slot:footer>
-            <button type="button" id="btnAgregarProductoModal" class="btn-primary w-full">
-                <i class="fas fa-plus"></i> Agregar a la lista
-            </button>
-        </x-slot:footer>
-    </div>
-</x-modal>
-
 <script src="/vendor/jquery/jquery.min.js"></script>
 <script src="/vendor/select2/select2.min.js"></script>
 <script>
     let filaIdx = 0;
     let tablaBody;
-    let almacenesData;
 
     function getProductName(text) {
-        const m = text.match(/\]\s*(.*)/);
+        const m = text.match(/\]\s*(.*?)(\s*—\s*Stock:.*|\s*\(Stock:.*)?$/);
         return m ? m[1] : text;
     }
 
     function generarTemplateHTML(idx, codigo, nombre, unidad) {
         return `
-        <tr class="fila-producto">
-            <td class="p-2">
-                <span class="texto-prod text-xs font-medium text-slate-800 truncate block" title="${nombre}">${nombre}</span>
+        <tr class="fila-producto hover:bg-slate-50/70 transition-colors">
+            <td class="py-2.5 px-3">
+                <div class="leading-tight">
+                    <span class="texto-prod text-xs font-bold text-slate-900 block" title="${nombre}">${nombre}</span>
+                    <span class="text-[10px] text-slate-500 font-mono mt-0.5 block">${codigo}</span>
+                </div>
                 <input type="hidden" class="input-cod" name="productos[${idx}][codigo_producto]" value="${codigo}">
             </td>
-            <td class="p-2 text-center">
-                <input type="number" step="0.01" min="0.01" class="w-full border border-slate-200 bg-slate-50 text-center rounded-md text-xs px-2" style="height:32px" name="productos[${idx}][cantidad]" required>
+            <td class="py-2.5 px-3 text-center">
+                <input type="number" step="0.01" min="0.01" class="w-full border border-slate-300 bg-white text-center rounded-lg text-xs font-bold text-slate-800 px-2 py-1.5 focus:border-primary focus:ring-1 focus:ring-primary shadow-xs" name="productos[${idx}][cantidad]" placeholder="0.00" value="1.00" required>
             </td>
-            <td class="p-2 text-center">
-                <span class="text-xs text-slate-500 font-semibold">${unidad || 'N/A'}</span>
+            <td class="py-2.5 px-3 text-center">
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">${unidad || 'N/A'}</span>
             </td>
-            <td class="p-2 text-center">
-                <button type="button" class="text-slate-400 hover:text-red-500 btn-del text-xs" title="Eliminar"><i class="fas fa-trash-alt"></i></button>
+            <td class="py-2.5 px-3 text-center">
+                <button type="button" class="text-slate-400 hover:text-red-500 hover:bg-red-50 w-7 h-7 rounded-md inline-flex items-center justify-center btn-del transition text-xs" title="Eliminar fila">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
             </td>
         </tr>
         `;
     }
 
     function agregarFila(producto) {
-        const idx = filaIdx++;
-        const nombre = getProductName(producto.text);
-        const unidad = producto.unidad_medida;
-        const html = generarTemplateHTML(idx, producto.id, nombre, unidad);
-        tablaBody.insertAdjacentHTML('beforeend', html);
-    }
+        const codigo = producto.id;
+        let existe = false;
+        document.querySelectorAll('.input-cod').forEach(input => {
+            if (input.value === codigo) {
+                existe = true;
+                const fila = input.closest('tr');
+                const cantInput = fila.querySelector('input[name*="[cantidad]"]');
+                if (cantInput) {
+                    cantInput.value = (parseFloat(cantInput.value || 0) + 1).toFixed(2);
+                    cantInput.focus();
+                }
+            }
+        });
 
-    function cerrarModal(id) {
-        const modal = document.getElementById(id);
-        if (modal) {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
+        if (existe) {
+            if (typeof window.toast === 'function') {
+                window.toast('El producto ya estaba en la lista. Se aumentó la cantidad.', 'info');
+            }
+            return;
         }
+
+        const idx = filaIdx++;
+        const nombre = producto.descripcion || getProductName(producto.text);
+        const unidad = producto.unidad_medida || producto.codigo_unidad_medida || 'N/A';
+        const html = generarTemplateHTML(idx, codigo, nombre, unidad);
+        tablaBody.insertAdjacentHTML('beforeend', html);
     }
 
     $(document).ready(function () {
         tablaBody = document.getElementById('tbodyProductos');
+        const searchUrl = '/productos/search-ajax?solo_materias_primas=1&almacen=ALM03';
 
         $('#select_idop').on('change', function() {
             const idop = $(this).val();
@@ -196,7 +206,6 @@
             
             if (idop) {
                 divProceso.removeClass('hidden');
-                // Fetch procesos
                 $.get(`/produccion/ordenes/${idop}/procesos-ajax`, function(data) {
                     data.forEach(function(p) {
                         selectProceso.append(`<option value="${p.id}">${p.descripcion_proceso}</option>`);
@@ -208,50 +217,62 @@
         });
 
         if (typeof $().select2 !== 'undefined') {
-            $('#selectProductoModal').select2({
-                dropdownParent: $('#modalProducto'),
+            $('#selectProductoInline').select2({
                 ajax: {
-                    url: '/productos/search-ajax',
+                    url: searchUrl,
                     dataType: 'json',
-                    delay: 300,
-                    data: function (params) {
-                        return { q: params.term || '', page: params.page || 1 };
-                    },
-                    processResults: function (data) {
-                        return { results: data, pagination: { more: false } };
-                    },
+                    delay: 250,
+                    data: function(p) { return { q: p.term }; },
+                    processResults: function(d) { return { results: d }; },
                     cache: true
                 },
-                minimumInputLength: 2,
-                placeholder: 'Buscar producto por código o descripción...',
-                language: 'es'
+                minimumInputLength: 0,
+                placeholder: 'Buscar materia prima por código o descripción...',
+                width: '100%',
+                templateResult: function(item) {
+                    if (!item.id) return item.text;
+                    const desc = item.descripcion || item.text.replace(/\[.*?\]\s*/, '').replace(/—\s*Stock:.*$/, '');
+                    const tipo = item.descripcion_tipo_producto || item.codigo_tipo_producto || '';
+                    const um = item.unidad_medida || item.codigo_unidad_medida || '';
+                    const stock = item.stock !== null && item.stock !== undefined ? parseFloat(item.stock).toFixed(2) : null;
+                    return $(`
+                        <div class="flex items-center justify-between py-1 px-0.5">
+                            <div class="truncate mr-2">
+                                <span class="font-bold text-slate-900">${item.id}</span>
+                                <span class="text-slate-700 ml-1.5 font-medium">${desc}</span>
+                            </div>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                ${stock !== null ? `<span class="text-[10px] font-bold px-1.5 py-0.5 ${parseFloat(stock) > 0 ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200'} rounded border">Stock: ${stock} ${um}</span>` : ''}
+                                ${tipo ? `<span class="text-[10px] uppercase font-bold px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded border border-slate-200">${tipo}</span>` : ''}
+                            </div>
+                        </div>
+                    `);
+                },
+                templateSelection: function(item) {
+                    return item.text || item.id;
+                }
+            });
+
+            $('#selectProductoInline').on('select2:select', function(e) {
+                agregarFila(e.params.data);
+                $('#selectProductoInline').val(null).trigger('change');
+            });
+
+            $('#btnAgregarProductoInline').on('click', function() {
+                const data = $('#selectProductoInline').select2('data');
+                if (data && data.length > 0 && data[0].id) {
+                    agregarFila(data[0]);
+                    $('#selectProductoInline').val(null).trigger('change');
+                } else {
+                    $('#selectProductoInline').select2('open');
+                }
             });
         }
-
-        $('#btnAgregarFila').on('click', function () {
-            $('#selectProductoModal').val(null).trigger('change');
-            window.abrirModal('modalProducto');
-        });
-
-        $('#btnAgregarProductoModal').on('click', function () {
-            const selected = $('#selectProductoModal').select2('data');
-            if (selected.length) {
-                agregarFila(selected[0]);
-                cerrarModal('modalProducto');
-            }
-        });
 
         $(document).on('click', '.btn-del', function () {
             $(this).closest('tr').remove();
         });
     });
-
-    window.abrirModal = function(id) {
-        const modal = document.getElementById(id);
-        if (modal) {
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
-    };
+</script>
 </script>
 @endsection

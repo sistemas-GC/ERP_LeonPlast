@@ -10,7 +10,7 @@
                 Ejecución: {{ strtoupper($proceso->proceso_desc) }}
             </h1>
             <p class="text-xs sm:text-sm text-slate-600 mt-1">
-                Orden #{{ $orden->idop }} - <span class="font-semibold">{{ $orden->descripcion_producto_proceso }}</span>
+                Orden #{{ $orden->codigo_op ?? $orden->idop }} - <span class="font-semibold">{{ $orden->descripcion_producto_proceso }}</span>
             </p>
         </div>
         <div class="mt-4 md:mt-0 flex flex-wrap items-center gap-3">
@@ -25,10 +25,10 @@
     </div>
 
     <!-- Cargador de Fórmulas -->
-    @if(($es_mezclado || $es_inyectado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_molido || $es_troquelado || $es_horneado) && $estado_proceso_actual !== 'COMPLETADO')
+    @if(($es_mezclado || $es_inyectado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_embolsado || $es_molido || $es_troquelado || $es_horneado) && $estado_proceso_actual !== 'COMPLETADO')
     <div class="bg-white rounded-xl shadow-md border-t-4 border-orange-500 mb-6 overflow-hidden">
         <div class="bg-slate-50 border-b border-slate-200">
-            @if($es_inyectado || $es_troquelado || $es_horneado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado)
+            @if($es_inyectado || $es_troquelado || $es_horneado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_embolsado)
             <ul class="flex flex-wrap text-sm font-medium text-center text-slate-500 border-b border-slate-200" id="op-tabs">
                 @if($es_inyectado || $es_troquelado || $es_horneado)
                 <li class="me-2">
@@ -73,6 +73,23 @@
                     <a href="#" onclick="switchOpTab('merma_carton')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-merma_carton">Merma Cartón</a>
                 </li>
                 @endif
+                @if($es_embolsado)
+                <li class="me-2">
+                    <a href="#" onclick="switchOpTab('embolsado')" class="inline-block p-4 text-blue-600 bg-white border-t border-l border-r border-slate-200 rounded-t-lg active" id="tab-embolsado">Producción (Embolsado)</a>
+                </li>
+                <li class="me-2">
+                    <a href="#" onclick="switchOpTab('merma_empaque')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-merma_empaque">Merma Bolsa / Empaque</a>
+                </li>
+                <li class="me-2">
+                    <a href="#" onclick="switchOpTab('merma_cascara')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-merma_cascara">Gancho / Cáscara dañada</a>
+                </li>
+                <li class="me-2">
+                    <a href="#" onclick="switchOpTab('merma_carton')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-merma_carton">Merma Cartón</a>
+                </li>
+                <li class="me-2">
+                    <a href="#" onclick="switchOpTab('merma_clip')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-merma_clip">Merma Clip</a>
+                </li>
+                @endif
                 @if($es_inyectado)
                 <li class="me-2">
                     <a href="#" onclick="switchOpTab('recuperado_molido')" class="inline-block p-4 border-b-0 hover:text-slate-600 hover:bg-slate-50 text-slate-500" id="tab-recuperado_molido">Colada / Cáscara</a>
@@ -101,7 +118,10 @@
                 <div class="flex flex-wrap items-center gap-3">
                     <div class="bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1.5">
                         <span class="text-slate-500 font-medium"><i class="fas fa-weight-hanging text-slate-400 mr-1"></i>Peso Bruto:</span>
-                        <span class="font-bold text-slate-800">{{ number_format($peso_inicial ?? 0, 2) }} KG</span>
+                        <span class="font-bold text-slate-800">{{ number_format($peso_bruto ?? $peso_inicial ?? 0, 2) }} KG</span>
+                        @if(($merma_empaque_total ?? 0) > 0)
+                            <span class="text-[10px] text-orange-600 font-semibold ml-1" title="Inicial: {{ number_format($peso_inicial, 2) }} KG - Merma Film: {{ number_format($merma_empaque_total, 2) }} KG">(-{{ number_format($merma_empaque_total, 2) }} film)</span>
+                        @endif
                     </div>
                     <div class="bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex items-center gap-1.5">
                         <span class="text-slate-500 font-medium"><i class="fas fa-box text-slate-400 mr-1"></i>Tara:</span>
@@ -129,13 +149,13 @@
             @endif
         </div>
         <div class="p-6 bg-white">
-            <input type="hidden" id="tipo_operacion" value="{{ $es_inyectado || $es_troquelado || $es_horneado ? 'inyectado' : ($es_mezclado ? 'mezclado' : ($es_ensamblado || $es_ensamblado_manual ? 'ensamblado' : ($es_encartonado ? 'encartonado' : ''))) }}">
+            <input type="hidden" id="tipo_operacion" value="{{ $es_inyectado || $es_troquelado || $es_horneado ? 'inyectado' : ($es_mezclado ? 'mezclado' : ($es_ensamblado || $es_ensamblado_manual ? 'ensamblado' : ($es_encartonado ? 'encartonado' : ($es_embolsado ? 'embolsado' : '')))) }}">
             
             <div class="flex flex-wrap items-end gap-4">
                 
-                @if($es_inyectado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_molido || $es_troquelado || $es_horneado || $es_mezclado)
+                @if($es_inyectado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_embolsado || $es_molido || $es_troquelado || $es_horneado || $es_mezclado)
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1" id="lbl_centro">{{ $es_troquelado ? 'Troqueladora (Centro)' : ($es_horneado ? 'Horno (Centro)' : ($es_molido ? 'Molino (Centro)' : ($es_ensamblado || $es_ensamblado_manual ? 'Ensambladora (Centro)' : ($es_encartonado ? 'Encartonadora (Centro)' : ($es_mezclado ? 'Mezcladora (Centro)' : 'Inyectora (Centro)'))))) }}</label>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1" id="lbl_centro">{{ $es_troquelado ? 'Troqueladora (Centro)' : ($es_horneado ? 'Horno (Centro)' : ($es_molido ? 'Molino (Centro)' : ($es_ensamblado || $es_ensamblado_manual ? 'Ensambladora (Centro)' : ($es_encartonado ? 'Encartonadora (Centro)' : ($es_embolsado ? 'Embolsadora / Selladora' : ($es_mezclado ? 'Mezcladora (Centro)' : 'Inyectora (Centro)')))))) }}</label>
                     <select id="centro_global" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3">
                         <option value="">-- Seleccione --</option>
                         @foreach($centros_trabajo as $ct)
@@ -160,7 +180,7 @@
                 @endif
                 
                 <div class="flex-1 min-w-50" id="wrapper_formula">
-                    <label class="block text-xs font-semibold text-slate-700 mb-1" id="lbl_formula">{{ $es_molido ? 'Producto a Moler' : ($es_ensamblado || $es_ensamblado_manual ? 'Producto a Ensamblar' : ($es_encartonado ? 'Fórmula Encartonado' : 'Fórmula/Color')) }}</label>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1" id="lbl_formula">{{ $es_molido ? 'Producto a Moler' : ($es_ensamblado || $es_ensamblado_manual ? 'Producto a Ensamblar' : ($es_encartonado ? 'Fórmula Encartonado' : ($es_embolsado ? 'Fórmula / Producto a Embolsar' : 'Fórmula/Color'))) }}</label>
                     <select id="formula_selector" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3">
                         <option value="">-- Seleccione --</option>
                         @foreach($formulas_disponibles as $fm)
@@ -200,10 +220,36 @@
                         @endif
                     </select>
                 </div>
+
+                <div class="flex-1 min-w-50 hidden" id="wrapper_inventario_empaque">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Producto Bolsa / Empaque (Merma)</label>
+                    <select id="empaque_selector" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3">
+                        <option value="">-- Seleccione Bolsa --</option>
+                        @if(isset($inventario_merma_empaque))
+                            @foreach($inventario_merma_empaque as $ie)
+                                <option value="{{ $ie->codigo_producto }}">{{ $ie->codigo_producto }} - {{ $ie->descripcion }} (Stock: {{ number_format($ie->stock_total ?? 0, 2) }})</option>
+                            @endforeach
+                        @endif
+                    </select>
+                </div>
+
+                @if($es_embolsado)
+                <div class="flex-1 min-w-50" id="wrapper_bolsa_empaque">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Bolsa de Empaque (Consumo)</label>
+                    <select id="bolsa_empaque_selector" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3">
+                        <option value="">-- Automático por Fórmula o Seleccione --</option>
+                        @if(isset($bolsas_disponibles_embolsado))
+                            @foreach($bolsas_disponibles_embolsado as $b)
+                                <option value="{{ $b->codigo_producto }}">{{ $b->codigo_producto }} - {{ $b->descripcion }} (Stock: {{ number_format($b->stock_total ?? 0, 2) }})</option>
+                            @endforeach
+                        @endif
+                    </select>
+                </div>
+                @endif
                 
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 mb-1">Cant. (KG)</label>
-                    <input type="number" id="cantidad_global" class="w-24 border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3" step="0.01">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1" id="lbl_cantidad_global">{{ $es_encartonado ? 'Cant. a producir (SET)' : ($es_embolsado ? 'Cant. a producir (BOL/PAQ)' : 'Cant. (KG)') }}</label>
+                    <input type="number" id="cantidad_global" class="w-24 border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3" step="0.01" oninput="typeof actualizarCalculadoraEncartonado === 'function' && actualizarCalculadoraEncartonado()">
                 </div>
             </div>
 
@@ -309,59 +355,72 @@
                 <div class="flex-1"></div>
 
                 <button type="button" onclick="cargarEjecucionAgrupada()" class="px-5 py-2 {{ $es_inyectado || $es_troquelado || $es_horneado ? 'bg-orange-600 hover:bg-orange-700' : 'bg-primary hover:bg-primary-dark' }} text-white font-medium rounded-md shadow-sm transition" id="btn_cargar">
-                    <i class="fas fa-box-open mr-2"></i>Cargar {{ $es_troquelado ? 'Troquelado' : ($es_horneado ? 'Horneado' : ($es_mezclado ? 'Fórmula' : ($es_ensamblado || $es_ensamblado_manual ? 'Ensamblado' : ($es_encartonado ? 'Encartonado' : ($es_molido ? 'Molido' : 'Inyectado'))))) }}
+                    <i class="fas fa-box-open mr-2"></i>Cargar {{ $es_troquelado ? 'Troquelado' : ($es_horneado ? 'Horneado' : ($es_mezclado ? 'Fórmula' : ($es_ensamblado || $es_ensamblado_manual ? 'Ensamblado' : ($es_encartonado ? 'Encartonado' : ($es_embolsado ? 'Embolsado' : ($es_molido ? 'Molido' : 'Inyectado')))))) }}
                 </button>
             </div>
 
             @if($es_encartonado)
             <div id="panel_colores_encartonado" class="mt-4 pt-4 border-t border-slate-200">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center">
-                            <i class="fas fa-palette text-indigo-500 mr-1.5"></i> Selección de 4 Colores (6 und / 25% c/u)
-                        </span>
-                        <span id="badge_contador_colores" class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-300">
-                            <span id="contador_colores">0</span> / 4 seleccionados
-                        </span>
-                    </div>
-                    <button type="button" onclick="limpiarColoresEncartonado()" class="text-xs text-slate-500 hover:text-red-600 font-medium transition self-start sm:self-auto">
-                        <i class="fas fa-undo-alt mr-1"></i> Limpiar selección
-                    </button>
-                </div>
-                <p class="text-xs text-slate-500 mb-3">Haga clic sobre los ganchos de color para seleccionarlos. El sistema consumirá automáticamente ganchos ensamblados (24 unidades totales) distribuidos equitativamente entre los 4 colores elegidos.</p>
-                
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
-                    @foreach($colores as $col)
-                    @php
-                        $swatch = '#94a3b8';
-                        $cUpper = strtoupper($col->descripcion . ' ' . $col->codigo);
-                        if (str_contains($cUpper, 'AZUL')) $swatch = '#2563eb';
-                        elseif (str_contains($cUpper, 'CELESTE')) $swatch = '#0ea5e9';
-                        elseif (str_contains($cUpper, 'VERDE')) $swatch = '#16a34a';
-                        elseif (str_contains($cUpper, 'MAGENTA')) $swatch = '#d946ef';
-                        elseif (str_contains($cUpper, 'NARANJA')) $swatch = '#ea580c';
-                        elseif (str_contains($cUpper, 'ROSADO')) $swatch = '#ec4899';
-                        elseif (str_contains($cUpper, 'ROJO')) $swatch = '#dc2626';
-                        elseif (str_contains($cUpper, 'VIOLETA')) $swatch = '#7c3aed';
-                        elseif (str_contains($cUpper, 'BLANCO')) $swatch = '#f1f5f9';
-                        elseif (str_contains($cUpper, 'AMARILLO')) $swatch = '#eab308';
-                    @endphp
-                    <div id="card_color_{{ $col->codigo }}" 
-                         onclick="toggleColorEncartonado('{{ $col->codigo }}')" 
-                         class="color-chip-encartonado cursor-pointer rounded-lg border-2 border-slate-200 bg-white p-2.5 transition-all duration-200 hover:border-primary/50 hover:shadow-sm flex items-center justify-between select-none"
-                         data-color="{{ $col->codigo }}">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <span class="w-4 h-4 rounded-full border border-slate-300 shrink-0 shadow-xs" style="background-color: {{ $swatch }};"></span>
-                            <div class="truncate">
-                                <div class="text-xs font-semibold text-slate-800 truncate" title="{{ $col->descripcion }}">{{ $col->descripcion }}</div>
-                                <div class="text-[10px] text-slate-400 font-mono">{{ $col->codigo }}</div>
+                <!-- Barra de Resumen y Selección de Colores -->
+                <div class="bg-indigo-50/70 border border-indigo-200/80 rounded-xl p-4 mb-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                                <i class="fas fa-layer-group text-sm"></i>
+                            </span>
+                            <div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-indigo-950 flex items-center gap-2">
+                                    <span>Ganchos Ensamblados (PEP) por OP</span>
+                                    <span id="badge_contador_colores" class="px-2.5 py-0.5 text-xs font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-300">
+                                        <span id="contador_colores">0</span> / 4 seleccionados
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-indigo-700/80 mt-0.5">
+                                    Seleccione los 4 colores requeridos (6 und / 25% c/u) tomando de una o varias OPs disponibles con saldo en el almacén de consumo.
+                                </p>
                             </div>
                         </div>
-                        <div class="color-check-icon hidden text-primary ml-1 shrink-0">
-                            <i class="fas fa-check-circle text-sm"></i>
+                        <button type="button" onclick="limpiarColoresEncartonado()" class="text-xs text-slate-500 hover:text-red-600 font-medium transition flex items-center gap-1 self-start sm:self-auto bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs hover:border-red-200">
+                            <i class="fas fa-undo-alt text-xs"></i> Limpiar selección
+                        </button>
+                    </div>
+
+                    <!-- Panel de Conversión en Vivo (SET -> KG) -->
+                    <div id="panel_conversion_encartonado" class="mt-3 p-3 bg-white rounded-lg border border-indigo-200/90 shadow-2xs">
+                        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-7 h-7 rounded-md bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold shrink-0 shadow-2xs">
+                                    <i class="fas fa-calculator text-xs"></i>
+                                </span>
+                                <div>
+                                    <div class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                                        <span>Conversión Automática:</span>
+                                        <span class="text-indigo-600 font-mono font-bold" id="txt_calc_sets">0 SET</span>
+                                        <span class="text-slate-400">&rarr;</span>
+                                        <span class="text-slate-700 font-mono font-semibold" id="txt_calc_unidades">0 Unidades</span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 mt-0.5" id="resumen_conversion_formula">
+                                        1 SET = 24 Unidades (6 und por color) + 1 Cartón
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-1.5" id="conversion_stats_cards">
+                                <!-- Tarjetas estadísticas de conversión -->
+                            </div>
                         </div>
                     </div>
-                    @endforeach
+
+                    <!-- Contenedor de Píldoras de Colores Seleccionados -->
+                    <div id="container_seleccionados_pills" class="hidden mt-3 pt-3 border-t border-indigo-100 flex flex-wrap items-center gap-2">
+                        <!-- Se insertan dinámicamente -->
+                    </div>
+                </div>
+
+                <!-- Listado Dinámico de OPs con Stock Disponible -->
+                <div id="container_ops_encartonado" class="space-y-4">
+                    <div class="text-center py-8 text-slate-400 text-sm">
+                        <i class="fas fa-spinner fa-spin mr-2 text-indigo-500"></i> Cargando OPs con ganchos ensamblados disponibles...
+                    </div>
                 </div>
             </div>
             @endif
@@ -382,11 +441,14 @@
                 @if($es_inyectado)
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 mb-1">Inyectada Inicial</label>
-                    <input type="number" id="inyectada_inicial_global" value="{{ $inyectada_inicial_sugerida ?? '' }}" class="w-32 border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3" placeholder="Ej. 1000" step="1">
+                    <input type="number" id="inyectada_inicial_global" value="{{ $inyectada_inicial_sugerida ?? '' }}" class="w-32 border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3 transition" placeholder="Ej. 1000" step="1" oninput="validarInyectadasLive()">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 mb-1">Inyectada Final</label>
-                    <input type="number" id="inyectada_final_global" value="" class="w-32 border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3" placeholder="Ej. 1500" step="1">
+                    <input type="number" id="inyectada_final_global" value="" class="w-32 border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3 transition" placeholder="Ej. 1500" step="1" oninput="validarInyectadasLive()">
+                    <div id="msg_error_inyectadas" class="hidden text-[11px] text-red-600 font-bold mt-1 max-w-[135px] leading-tight">
+                        <i class="fas fa-exclamation-circle mr-0.5"></i> Final &ge; Inicial
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 mb-1">Tiempo Ciclo (seg)</label>
@@ -411,7 +473,7 @@
 
     <!-- Detalle de Componentes -->
     <!-- Hidden input for stock check when the form block is hidden -->
-    @if(!($es_mezclado || $es_inyectado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_molido) || $estado_proceso_actual === 'COMPLETADO')
+    @if(!($es_mezclado || $es_inyectado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_embolsado || $es_molido) || $estado_proceso_actual === 'COMPLETADO')
         <input type="hidden" id="codigo_almacen_consumo" value="{{ $proceso_produccion_almacen ?? '' }}">
     @endif
 
@@ -447,12 +509,14 @@
                                 <th class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider">Fecha</th>
                                 <th class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider">Hora In/Fin (Hombre)</th>
                                 <th class="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider">Hora In/Fin (Máquina)</th>
+                                <th class="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider">Iny. Ini / Fin</th>
+                                <th class="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider">N° OT</th>
                                 <th class="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider">Observación</th>
                                 <th class="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="tbody_items" class="bg-white divide-y divide-slate-200">
-                            @if(($es_inyectado || $es_mezclado || $es_troquelado || $es_horneado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_molido) && isset($cargas_agrupadas) && $cargas_agrupadas->count() > 0)
+                            @if(($es_inyectado || $es_mezclado || $es_troquelado || $es_horneado || $es_ensamblado || $es_ensamblado_manual || $es_encartonado || $es_embolsado || $es_molido) && isset($cargas_agrupadas) && $cargas_agrupadas->count() > 0)
                                 @foreach($cargas_agrupadas as $key => $grupo)
                                     @php
                                         // Extraer datos comunes del primer componente del grupo
@@ -484,18 +548,13 @@
                                                 @php
                                                     $mostrarProductoDirecto = $esActividad || in_array($first->tipo_operacion, ['merma_empaque', 'recuperado_clip', 'merma_cascara', 'merma_carton']);
                                                 @endphp
-                                                <div class="text-sm font-bold text-slate-800 break-words mb-1">
+                                                <div class="text-sm font-bold text-slate-800 break-words">
                                                     @if($mostrarProductoDirecto)
                                                         {{ $first->descripcion_producto }}
                                                     @else
                                                         {{ $nombreColorDisplay ?? ($first->descripcion_formula_produccion ?? ($first->descripcion_producto ?? 'Registro Manual')) }}
                                                     @endif
                                                 </div>
-                                                @if($mostrarProductoDirecto)
-                                                    <div class="text-xs text-slate-500 break-words">{{ $first->codigo_producto }}</div>
-                                                @else
-                                                    <div class="text-xs text-slate-500 break-words">{{ $first->codigo_formula_produccion ?? $first->codigo_producto ?? 'N/A' }}</div>
-                                                @endif
                                                 @if($first->codigo_color)
                                                     <span class="ml-2 px-2 py-0.5 rounded text-[10px] bg-slate-200 text-slate-700">{{ $first->codigo_color }}</span>
                                                 @endif
@@ -511,6 +570,14 @@
                                         <td class="px-3 py-3 whitespace-nowrap text-xs text-slate-500">{{ $first->fecha_inicio ?? $first->fecha ?? 'N/A' }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-xs text-slate-500">{{ $first->hora_inicio }} - {{ $first->hora_fin }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-xs text-slate-500">{{ $first->hora_inicio_maquina }} - {{ $first->hora_fin_maquina }}</td>
+                                        <td class="px-3 py-3 text-center whitespace-nowrap text-xs font-mono font-medium text-slate-700">
+                                            @if(!empty($first->inyectada_inicial) || !empty($first->inyectada_final))
+                                                {{ $first->inyectada_inicial ?? '-' }} - {{ $first->inyectada_final ?? '-' }}
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
+                                        <td class="px-3 py-3 text-center whitespace-nowrap text-xs font-mono font-bold text-slate-700">{{ $first->numero_ot ?? '-' }}</td>
                                         @php
                                             $bgLabel = 'bg-blue-100 text-blue-800';
                                             $textLabel = 'PRODUCCIÓN';
@@ -530,6 +597,11 @@
                                             <button type="button" onclick="toggleDetallesCarga('{{ $loop->index }}')" class="text-slate-500 hover:text-primary mr-2" title="Ver Detalles">
                                                 <i class="fas fa-eye"></i>
                                             </button>
+                                            @if($estado_proceso_actual !== 'COMPLETADO')
+                                            <button type="button" onclick="eliminarCarga({{ json_encode($grupo->pluck('id_op_componentes')) }})" class="text-red-500 hover:text-red-700" title="Eliminar Carga Completa">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                            @endif
                                         </td>
                                     </tr>
                                     <!-- Filas de detalle ocultas por defecto -->
@@ -542,7 +614,6 @@
                                         </td>
                                         <td class="px-3 py-2">
                                             <div class="text-xs text-slate-900 font-medium">{{ $r->descripcion_producto }}</div>
-                                            <div class="text-[9px] text-slate-500">{{ $r->codigo_producto }}</div>
                                         </td>
                                         <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-500">{{ $r->codigo_centro_trabajo }}</td>
                                         @if($es_inyectado)
@@ -551,7 +622,15 @@
                                         <td class="px-3 py-2 whitespace-nowrap text-xs font-semibold text-slate-700">{{ number_format($r->cantidad, 2) }}</td>
                                         <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-500">{{ $r->codigo_unidad_medida }}</td>
                                         <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-500">{{ $r->codigo_trabajador }}</td>
-                                        <td colspan="2" class="px-3 py-2 text-xs text-slate-400">Detalle Interno</td>
+                                        <td colspan="3" class="px-3 py-2 text-xs text-slate-400">Detalle Interno</td>
+                                        <td class="px-3 py-2 text-center whitespace-nowrap text-xs font-mono text-slate-500">
+                                            @if(!empty($r->inyectada_inicial) || !empty($r->inyectada_final))
+                                                {{ $r->inyectada_inicial ?? '-' }} - {{ $r->inyectada_final ?? '-' }}
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
+                                        <td class="px-3 py-2 text-center whitespace-nowrap text-xs font-mono font-bold text-slate-700">{{ $r->numero_ot ?? '-' }}</td>
                                         <td class="px-3 py-2 text-xs text-slate-500 max-w-[150px] truncate" title="{{ $r->observacion }}">{{ $r->observacion ?? '-' }}</td>
                                         <td class="px-3 py-2 whitespace-nowrap text-center text-xs font-medium">
                                             @if($estado_proceso_actual !== 'COMPLETADO')
@@ -576,7 +655,6 @@
                                 </td>
                                 <td class="px-3 py-2">
                                     <div class="text-sm text-slate-900 font-bold">{{ $r->descripcion_producto }}</div>
-                                    <div class="text-[10px] text-slate-500">{{ $r->codigo_producto }}</div>
                                 </td>
                                 <td class="px-3 py-2 whitespace-nowrap text-sm text-slate-500">{{ $r->codigo_centro_trabajo }}</td>
                                 @if($es_inyectado) <td class="px-3 py-2 whitespace-nowrap text-sm text-slate-500">{{ $r->codigo_molde }}</td> @endif
@@ -586,6 +664,14 @@
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-500">{{ $r->fecha_inicio ?? 'N/A' }}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-500">{{ $r->hora_inicio }} - {{ $r->hora_fin }}</td>
                                 <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-500">{{ $r->hora_inicio_maquina }} - {{ $r->hora_fin_maquina }}</td>
+                                <td class="px-3 py-2 text-center whitespace-nowrap text-xs font-mono font-medium text-slate-700">
+                                    @if(!empty($r->inyectada_inicial) || !empty($r->inyectada_final))
+                                        {{ $r->inyectada_inicial ?? '-' }} - {{ $r->inyectada_final ?? '-' }}
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+                                <td class="px-3 py-2 text-center whitespace-nowrap text-xs font-mono font-bold text-slate-700">{{ $r->numero_ot ?? '-' }}</td>
                                 @php
                                     $bgLabelR = 'bg-blue-100 text-blue-800';
                                     $textLabelR = 'PRODUCCIÓN';
@@ -611,7 +697,7 @@
                             </tr>
 
                             <tr id="row_edit_{{ $r->id_op_componentes }}" class="hidden">
-                                <td colspan="11" class="p-0 border-b border-slate-200">
+                                <td colspan="15" class="p-0 border-b border-slate-200">
                                     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4 p-4 bg-primary-50 rounded-b-lg component-edit-container" data-id="{{ $r->id_op_componentes }}">
                                         <div>
                                             <label class="block text-xs font-semibold text-slate-600 mb-1">Cantidad</label>
@@ -674,6 +760,22 @@
                                             </div>
                                         </div>
 
+                                        <div>
+                                            <label class="block text-[10px] font-semibold text-slate-600 mb-1">Iny. Inicial / Final</label>
+                                            <div class="flex gap-1">
+                                                <input type="number" name="inyectada_inicial" value="{{ $r->inyectada_inicial ?? '' }}"
+                                                    class="w-1/2 border-slate-300 rounded-md text-sm py-1.5 px-1 focus:ring-primary focus:border-primary font-mono" placeholder="Ini">
+                                                <input type="number" name="inyectada_final" value="{{ $r->inyectada_final ?? '' }}"
+                                                    class="w-1/2 border-slate-300 rounded-md text-sm py-1.5 px-1 focus:ring-primary focus:border-primary font-mono" placeholder="Fin">
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-semibold text-slate-600 mb-1">N° OT</label>
+                                            <input type="text" name="numero_ot" value="{{ $r->numero_ot ?? '' }}"
+                                                class="w-full border-slate-300 rounded-md text-sm py-1.5 px-2 focus:ring-primary focus:border-primary font-mono uppercase" placeholder="Ej: OT-01">
+                                        </div>
+
                                         <div class="flex gap-2 items-end justify-start xl:justify-end pb-0.5 sm:col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-1">
                                             <button type="button" onclick="submitUpdateComponente({{ $r->id_op_componentes }}, this)"
                                                 class="px-4 py-1.5 bg-primary hover:bg-primary-dark text-white text-sm font-semibold rounded-lg shadow transition">
@@ -703,37 +805,12 @@
                     </div>
                 </div>
 
-                @if($estado_proceso_actual !== 'COMPLETADO' && !$es_actividad)
-                <!-- Productos Resultantes -->
-                <div class="mt-6 pt-4 border-t border-slate-200">
-                    <div class="flex justify-between items-center mb-3">
-                        <h3 class="text-base font-bold text-slate-800">
-                            <i class="fas fa-arrow-right text-primary mr-2"></i>Productos Resultantes
-                        </h3>
-                        <button type="button" onclick="agregarFilaProductoResultante()" class="text-sm bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary-dark transition shadow-sm hover:shadow">
-                            <i class="fas fa-plus mr-1"></i>Agregar Producto
-                        </button>
-                    </div>
-                    <div class="overflow-x-auto pb-48">
-                        <table class="min-w-full divide-y divide-slate-200 text-sm">
-                            <thead class="bg-slate-700 text-white">
-                                <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold uppercase">Producto</th>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold uppercase">Cantidad</th>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold uppercase">U.M.</th>
-                                    <th class="px-3 py-2 text-center text-xs font-semibold uppercase w-16">Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tbody_resultantes" class="bg-white divide-y divide-slate-200"></tbody>
-                        </table>
-                    </div>
-                </div>
-                @endif
+
 
                 <!-- Footer del Formulario -->
                 <div class="mt-6 pt-6 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
                     <div>
-                        @if($estado_proceso_actual !== 'COMPLETADO')
+                        @if($estado_proceso_actual !== 'COMPLETADO' && Auth::user()->hasAccess('ordenes.procesos.finalizar'))
                             <button type="button" onclick="confirmarCierre()" class="px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition shadow-sm {{ !$tiene_componentes ? 'opacity-50 cursor-not-allowed' : '' }}" {{ !$tiene_componentes ? 'disabled' : '' }}>
                                 🏁 Finalizar y Cerrar Proceso
                             </button>
@@ -741,7 +818,7 @@
                     </div>
                     
                     <div class="flex flex-wrap items-center justify-end gap-4">
-                        @if($estado_proceso_actual !== 'COMPLETADO')
+                        @if($estado_proceso_actual !== 'COMPLETADO' && Auth::user()->hasAccess('ordenes.procesos.ejecutar'))
                         <button type="button" id="btnGuardar" onclick="enviarGuardado()" class="px-6 py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition shadow-sm transform hover:-translate-y-0.5">
                             💾 Guardar Componentes
                         </button>
@@ -762,6 +839,12 @@
     @method('DELETE')
 </form>
 
+<form id="form_delete_carga" action="{{ route('ordenes.procesos.carga.destroy', [$orden->idop, $proceso->id]) }}" method="POST">
+    @csrf
+    @method('DELETE')
+    <input type="hidden" name="ids" id="delete_carga_ids">
+</form>
+
 <form id="form_update_componente" action="" method="POST">
     @csrf
     @method('PUT')
@@ -775,6 +858,9 @@
     <input type="hidden" name="fecha_fin_maquina" id="upd_fecha_fin_maquina">
     <input type="hidden" name="hora_inicio_maquina" id="upd_hora_inicio_maquina">
     <input type="hidden" name="hora_fin_maquina" id="upd_hora_fin_maquina">
+    <input type="hidden" name="inyectada_inicial" id="upd_inyectada_inicial">
+    <input type="hidden" name="inyectada_final" id="upd_inyectada_final">
+    <input type="hidden" name="numero_ot" id="upd_numero_ot">
     <input type="hidden" name="observacion" id="upd_observacion">
 </form>
 
@@ -792,6 +878,12 @@
         document.getElementById('upd_fecha_fin_maquina').value = container.querySelector('input[name="fecha_fin_maquina"]').value;
         document.getElementById('upd_hora_inicio_maquina').value = container.querySelector('input[name="hora_inicio_maquina"]').value;
         document.getElementById('upd_hora_fin_maquina').value = container.querySelector('input[name="hora_fin_maquina"]').value;
+        const inyIniInput = container.querySelector('input[name="inyectada_inicial"]');
+        document.getElementById('upd_inyectada_inicial').value = inyIniInput ? inyIniInput.value : '';
+        const inyFinInput = container.querySelector('input[name="inyectada_final"]');
+        document.getElementById('upd_inyectada_final').value = inyFinInput ? inyFinInput.value : '';
+        const otInput = container.querySelector('input[name="numero_ot"]');
+        document.getElementById('upd_numero_ot').value = otInput ? otInput.value.trim() : '';
         const obsInput = container.querySelector('input[name="observacion"]');
         if (obsInput) {
             document.getElementById('upd_observacion').value = obsInput.value;
@@ -819,60 +911,341 @@
     const esHorneado = {{ $es_horneado ? 'true' : 'false' }};
     const esEnsamblado = {{ $es_ensamblado ? 'true' : 'false' }};
     const esEncartonado = {{ $es_encartonado ? 'true' : 'false' }};
+    const esEmbolsado = {{ (isset($es_embolsado) && $es_embolsado) ? 'true' : 'false' }};
     const esMolido = {{ (isset($es_molido) && $es_molido) ? 'true' : 'false' }};
     const pesoNeto = {{ $peso_neto ?? 0 }};
     const pesoConsumido = {{ $peso_consumido ?? 0 }};
+    const pesoInicial = {{ $peso_inicial ?? 0 }};
+    const mermaEmpaqueTotal = {{ $merma_empaque_total ?? 0 }};
 
-    let selectedColorsEncartonado = [];
+    let opsDisponiblesCache = @json($ops_disponibles_encartonado ?? []);
+    let selectedItemsEncartonado = []; // [{ idop: 10, codigo_color: 'B004', nombre_color: 'AZUL 15122', stock: 45.0, swatch: '#2563eb', codigo_op: 'OP-0010' }]
 
-    function toggleColorEncartonado(colorCode) {
-        const idx = selectedColorsEncartonado.indexOf(colorCode);
+    function renderizarOpsYColores(ops) {
+        const container = document.getElementById('container_ops_encartonado');
+        if (!container) return;
+
+        if (!ops || ops.length === 0) {
+            const almEl = document.getElementById('codigo_almacen_consumo');
+            const almName = almEl && almEl.selectedIndex >= 0 ? almEl.options[almEl.selectedIndex].text : '';
+            container.innerHTML = `
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-5 text-center text-amber-900">
+                    <i class="fas fa-box-open text-3xl text-amber-500 mb-2 block"></i>
+                    <div class="font-bold text-sm">No hay ganchos ensamblados (PEP) con saldo en ${almName || 'este almacén'}</div>
+                    <div class="text-xs text-amber-700 mt-1">Verifique que la orden anterior de ensamblado haya sido recepcionada en el almacén de consumo seleccionado.</div>
+                </div>
+            `;
+            actualizarVistaSeleccionEncartonado();
+            return;
+        }
+
+        let html = '';
+        ops.forEach(op => {
+            const idop = op.idop;
+            const codigoOp = op.codigo_op;
+            const descOp = op.descripcion_op;
+            const stockTotal = parseFloat(op.stock_total || 0).toFixed(2);
+            const colores = op.colores || [];
+
+            html += `
+                <div class="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden transition hover:border-indigo-300">
+                    <div class="bg-slate-50 border-b border-slate-200 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 text-xs font-bold rounded bg-indigo-100 text-indigo-800 font-mono">OP #${idop}</span>
+                            <span class="text-xs font-bold text-slate-800">${descOp}</span>
+                            ${codigoOp && codigoOp !== 'SIN_OP' ? `<span class="text-[11px] text-slate-400 font-mono">(${codigoOp})</span>` : ''}
+                        </div>
+                        <div class="flex items-center gap-2 text-xs">
+                            <span class="text-slate-500 font-medium">Disponible:</span>
+                            <span class="font-bold text-indigo-700">${stockTotal} KG</span>
+                            <span class="text-slate-300">|</span>
+                            <span class="text-slate-600 font-medium">${colores.length} ${colores.length === 1 ? 'color' : 'colores'}</span>
+                        </div>
+                    </div>
+                    <div class="p-3.5">
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+            `;
+
+            colores.forEach(col => {
+                const colCod = col.codigo_color;
+                const colNom = col.nombre_color || colCod;
+                const stockCol = parseFloat(col.stock || 0).toFixed(2);
+                const swatch = col.swatch || '#94a3b8';
+                const chipKey = `${idop}_${colCod}`;
+
+                const isSelected = selectedItemsEncartonado.some(item => String(item.idop) === String(idop) && String(item.codigo_color) === String(colCod));
+
+                html += `
+                    <div id="chip_op_${chipKey}" 
+                         onclick="toggleColorOpEncartonado(${idop}, '${colCod}', '${escapeQuotes(colNom)}', ${col.stock}, '${swatch}', '${escapeQuotes(codigoOp)}')" 
+                         class="color-chip-op cursor-pointer rounded-lg border-2 ${isSelected ? 'border-indigo-600 bg-indigo-50/80 shadow-xs' : 'border-slate-200 bg-white'} p-2.5 transition-all duration-150 hover:border-indigo-400 hover:shadow-xs flex items-center justify-between select-none"
+                         data-idop="${idop}" data-color="${colCod}">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="w-4 h-4 rounded-full border border-slate-300 shrink-0 shadow-xs" style="background-color: ${swatch};"></span>
+                            <div class="truncate">
+                                <div class="text-xs font-semibold text-slate-800 truncate" title="${colNom}">${colNom}</div>
+                                <div class="flex items-center gap-1.5 mt-0.5">
+                                    <span class="text-[10px] text-slate-400 font-mono">${colCod}</span>
+                                    <span class="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-mono">${stockCol} KG</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="color-check-icon ${isSelected ? '' : 'hidden'} text-indigo-600 ml-1 shrink-0">
+                            <i class="fas fa-check-circle text-sm"></i>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+        actualizarVistaSeleccionEncartonado();
+    }
+
+    function escapeQuotes(str) {
+        return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    function getFactoresEncartonado() {
+        const formulaEl = document.getElementById('formula_selector');
+        const formula = formulaEl ? (formulaEl.value || '') : '';
+        
+        // Factores estándar por fórmula (en KG por SET):
+        // 1 SET = 24 unidades totales = 6 unidades por cada uno de los 4 colores
+        let factorGanchoKg = 0.13944; // Default: Paleta Máquina (139.44 g por color en 1 SET)
+        let factorCartonKg = 0.01420; // 14.2 g cartón en rollo por 1 SET
+        let descGancho = 'Gancho Paleta';
+
+        if (formula.includes('CHUPON') || formula.includes('Z002')) {
+            factorGanchoKg = 0.09408; // 94.08 g por color en 1 SET (15.68 g por gancho * 6)
+            factorCartonKg = 0.00190; // 1.90 g cartón chupón por 1 SET
+            descGancho = 'Gancho Chupón';
+        } else if (formula.includes('MANUAL') || formula.includes('Z003')) {
+            factorGanchoKg = 0.13944; // 139.44 g por color en 1 SET
+            factorCartonKg = 0.00790; // 7.90 g cartón paleta por 1 SET
+            descGancho = 'Gancho Paleta Manual';
+        }
+
+        return {
+            factorGanchoKg: factorGanchoKg,
+            factorCartonKg: factorCartonKg,
+            descGancho: descGancho
+        };
+    }
+
+    function actualizarCalculadoraEncartonado() {
+        const panel = document.getElementById('panel_conversion_encartonado');
+        if (!panel) return;
+
+        const tipoOp = document.getElementById('tipo_operacion') ? document.getElementById('tipo_operacion').value : '';
+        if (tipoOp !== 'encartonado') {
+            panel.classList.add('hidden');
+            return;
+        }
+        panel.classList.remove('hidden');
+
+        const cantInput = document.getElementById('cantidad_global');
+        const sets = parseFloat(cantInput ? cantInput.value : 0) || 0;
+        const factores = getFactoresEncartonado();
+
+        const totalUnidades = Math.round(sets * 24);
+        const unidadesPorColor = Math.round(sets * 6);
+        const kgPorColor = sets * factores.factorGanchoKg;
+        const kgTotalGanchos = kgPorColor * 4;
+        const kgCarton = sets * factores.factorCartonKg;
+        const kgTotal = kgTotalGanchos + kgCarton;
+
+        const txtSets = document.getElementById('txt_calc_sets');
+        const txtUnidades = document.getElementById('txt_calc_unidades');
+        const txtResumen = document.getElementById('resumen_conversion_formula');
+        const cardsContainer = document.getElementById('conversion_stats_cards');
+
+        if (txtSets) txtSets.textContent = `${sets.toLocaleString()} SET`;
+        if (txtUnidades) txtUnidades.textContent = `${totalUnidades.toLocaleString()} Und (${unidadesPorColor.toLocaleString()} por color)`;
+        if (txtResumen) {
+            txtResumen.textContent = `1 SET = 24 Unidades (${(factores.factorGanchoKg * 1000).toFixed(2)}g gancho/color + ${(factores.factorCartonKg * 1000).toFixed(2)}g cartón) — ${factores.descGancho}`;
+        }
+
+        if (cardsContainer) {
+            cardsContainer.innerHTML = `
+                <div class="px-2.5 py-1 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-900 flex items-center gap-1.5 font-mono shadow-2xs">
+                    <span class="text-[10px] uppercase font-bold text-indigo-600">Por Color:</span>
+                    <span class="font-bold text-xs">${kgPorColor.toFixed(3)} KG</span>
+                </div>
+                <div class="px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200 text-blue-900 flex items-center gap-1.5 font-mono shadow-2xs">
+                    <span class="text-[10px] uppercase font-bold text-blue-600">Ganchos (4 Col):</span>
+                    <span class="font-bold text-xs">${kgTotalGanchos.toFixed(3)} KG</span>
+                </div>
+                <div class="px-2.5 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-900 flex items-center gap-1.5 font-mono shadow-2xs">
+                    <span class="text-[10px] uppercase font-bold text-amber-600">Cartón:</span>
+                    <span class="font-bold text-xs">${kgCarton.toFixed(3)} KG</span>
+                </div>
+                <div class="px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center gap-1.5 font-mono shadow-2xs">
+                    <span class="text-[10px] uppercase font-bold text-emerald-600">Total Producido:</span>
+                    <span class="font-bold text-xs">${kgTotal.toFixed(3)} KG</span>
+                </div>
+            `;
+        }
+
+        actualizarVistaSeleccionEncartonado();
+    }
+
+    function toggleColorOpEncartonado(idop, codigo_color, nombre_color, stock, swatch, codigo_op) {
+        const idx = selectedItemsEncartonado.findIndex(item => String(item.idop) === String(idop) && String(item.codigo_color) === String(codigo_color));
+        
         if (idx > -1) {
-            selectedColorsEncartonado.splice(idx, 1);
+            selectedItemsEncartonado.splice(idx, 1);
         } else {
-            if (selectedColorsEncartonado.length >= 4) {
+            if (selectedItemsEncartonado.length >= 4) {
                 Swal.fire({
                     icon: 'warning',
-                    title: 'Máximo 4 Colores',
-                    text: 'Solo puede seleccionar exactamente 4 colores para el encartonado.'
+                    title: 'Límite de 4 Colores',
+                    text: 'Ya ha seleccionado los 4 colores requeridos. Deseleccione uno si desea cambiarlo.'
                 });
                 return;
             }
-            selectedColorsEncartonado.push(colorCode);
+            selectedItemsEncartonado.push({
+                idop: idop,
+                codigo_color: codigo_color,
+                nombre_color: nombre_color,
+                stock: stock,
+                swatch: swatch,
+                codigo_op: codigo_op
+            });
         }
-        actualizarVistaColoresEncartonado();
+
+        actualizarVistaSeleccionEncartonado();
     }
 
     function limpiarColoresEncartonado() {
-        selectedColorsEncartonado = [];
-        actualizarVistaColoresEncartonado();
+        selectedItemsEncartonado = [];
+        actualizarVistaSeleccionEncartonado();
     }
 
-    function actualizarVistaColoresEncartonado() {
-        document.querySelectorAll('.color-chip-encartonado').forEach(el => {
-            const code = el.getAttribute('data-color');
+    function deseleccionarItemEncartonado(index) {
+        if (index >= 0 && index < selectedItemsEncartonado.length) {
+            selectedItemsEncartonado.splice(index, 1);
+            actualizarVistaSeleccionEncartonado();
+        }
+    }
+
+    function actualizarVistaSeleccionEncartonado() {
+        const cantInput = document.getElementById('cantidad_global');
+        const sets = parseFloat(cantInput ? cantInput.value : 0) || 0;
+        const factores = getFactoresEncartonado();
+        const kgRequeridoPorColor = sets * factores.factorGanchoKg;
+
+        // Actualizar chips en el DOM
+        document.querySelectorAll('.color-chip-op').forEach(el => {
+            const chipIdop = el.getAttribute('data-idop');
+            const chipColor = el.getAttribute('data-color');
             const icon = el.querySelector('.color-check-icon');
-            if (selectedColorsEncartonado.includes(code)) {
+            const isSelected = selectedItemsEncartonado.some(i => String(i.idop) === String(chipIdop) && String(i.codigo_color) === String(chipColor));
+
+            if (isSelected) {
                 el.classList.remove('border-slate-200', 'bg-white');
-                el.classList.add('border-primary', 'bg-primary/5', 'shadow-xs');
+                el.classList.add('border-indigo-600', 'bg-indigo-50/80', 'shadow-xs');
                 if (icon) icon.classList.remove('hidden');
             } else {
                 el.classList.add('border-slate-200', 'bg-white');
-                el.classList.remove('border-primary', 'bg-primary/5', 'shadow-xs');
+                el.classList.remove('border-indigo-600', 'bg-indigo-50/80', 'shadow-xs');
                 if (icon) icon.classList.add('hidden');
             }
         });
 
+        // Actualizar contador y badge
         const contador = document.getElementById('contador_colores');
         const badge = document.getElementById('badge_contador_colores');
-        if (contador) contador.textContent = selectedColorsEncartonado.length;
+        const cant = selectedItemsEncartonado.length;
+
+        if (contador) contador.textContent = cant;
         if (badge) {
-            if (selectedColorsEncartonado.length === 4) {
+            if (cant === 4) {
                 badge.className = 'px-2.5 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300';
+                badge.innerHTML = '<i class="fas fa-check-circle mr-1"></i>4 / 4 seleccionados (Completo)';
             } else {
                 badge.className = 'px-2.5 py-0.5 text-xs font-bold rounded-full bg-slate-100 text-slate-600 border border-slate-300';
+                badge.textContent = `${cant} / 4 seleccionados`;
             }
         }
+
+        // Renderizar píldoras de resumen
+        const pillsContainer = document.getElementById('container_seleccionados_pills');
+        if (pillsContainer) {
+            if (cant === 0) {
+                pillsContainer.classList.add('hidden');
+                pillsContainer.innerHTML = '';
+            } else {
+                pillsContainer.classList.remove('hidden');
+                let pillsHtml = '<span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">Seleccionados:</span>';
+                selectedItemsEncartonado.forEach((item, index) => {
+                    const stockNum = parseFloat(item.stock) || 0;
+                    const esInsuficiente = (kgRequeridoPorColor > 0 && stockNum < (kgRequeridoPorColor - 0.001));
+
+                    pillsHtml += `
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${esInsuficiente ? 'bg-red-50 border border-red-300 text-red-900' : 'bg-white border border-indigo-200 text-slate-800'} shadow-2xs transition">
+                            <span class="w-3 h-3 rounded-full border border-slate-300 shrink-0" style="background-color: ${item.swatch || '#94a3b8'};"></span>
+                            <span>${item.nombre_color}</span>
+                            <span class="text-[10px] text-indigo-700 font-mono font-bold bg-indigo-50 px-1.5 py-0.2 rounded">OP #${item.idop}</span>
+                            ${kgRequeridoPorColor > 0 ? `
+                                <span class="text-[10px] font-mono font-bold ${esInsuficiente ? 'text-red-700' : 'text-slate-500'}">
+                                    Req: ${kgRequeridoPorColor.toFixed(2)} KG / Disp: ${stockNum.toFixed(2)} KG
+                                </span>
+                            ` : ''}
+                            ${esInsuficiente ? `<span class="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.2 rounded"><i class="fas fa-exclamation-triangle"></i> Falta saldo</span>` : ''}
+                            <button type="button" onclick="deseleccionarItemEncartonado(${index})" class="text-slate-400 hover:text-red-600 ml-1 transition" title="Quitar">
+                                <i class="fas fa-times-circle"></i>
+                            </button>
+                        </span>
+                    `;
+                });
+                pillsContainer.innerHTML = pillsHtml;
+            }
+        }
+    }
+
+    function actualizarOpsDisponiblesEncartonado(almacen) {
+        if (!esEncartonado) return;
+        const container = document.getElementById('container_ops_encartonado');
+        if (container) {
+            container.innerHTML = `
+                <div class="text-center py-6 text-slate-400 text-xs">
+                    <i class="fas fa-spinner fa-spin mr-1.5 text-indigo-500"></i> Actualizando ganchos con saldo en ${almacen || 'almacén'}...
+                </div>
+            `;
+        }
+
+        if (!almacen) {
+            opsDisponiblesCache = [];
+            renderizarOpsYColores([]);
+            return;
+        }
+
+        fetch(`/produccion/api/encartonado/ops-disponibles?codigo_almacen=${encodeURIComponent(almacen)}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                opsDisponiblesCache = data.ops || [];
+                renderizarOpsYColores(opsDisponiblesCache);
+            }
+        })
+        .catch(err => {
+            console.error('Error al obtener OPs disponibles para encartonado:', err);
+            if (container) {
+                container.innerHTML = `<div class="text-xs text-red-500 p-3">Error al consultar existencias en almacén.</div>`;
+            }
+        });
     }
 
     function vincularFormula() {
@@ -996,6 +1369,7 @@
             const inyIni = document.getElementById('inyectada_inicial_global') ? document.getElementById('inyectada_inicial_global').value : '';
             const inyFinal = document.getElementById('inyectada_final_global') ? document.getElementById('inyectada_final_global').value : '';
             const tiempoCiclo = document.getElementById('tiempo_ciclo_global') ? document.getElementById('tiempo_ciclo_global').value : '';
+            const formula = document.getElementById('formula_selector') ? document.getElementById('formula_selector').value : '';
 
             const estado = {
                 centro: centro,
@@ -1007,14 +1381,42 @@
                 hora_fin: horaFin,
                 codigo_almacen_consumo: almacen,
                 tipo_operacion: tipoOp,
+                selected_items_encartonado: selectedItemsEncartonado,
                 inyectada_siguiente_inicial: (inyFinal !== null && inyFinal !== '') ? inyFinal : inyIni,
-                tiempo_ciclo: tiempoCiclo
+                tiempo_ciclo: tiempoCiclo,
+                formula: formula
             };
 
             sessionStorage.setItem('ejecucion_cabecera_{{ $orden->idop }}_{{ $proceso->id }}', JSON.stringify(estado));
         } catch (e) {
             console.warn('Error al guardar estado de cabecera:', e);
         }
+    }
+
+    function validarInyectadasLive() {
+        const elIni = document.getElementById('inyectada_inicial_global');
+        const elFin = document.getElementById('inyectada_final_global');
+        const elMsg = document.getElementById('msg_error_inyectadas');
+        if (!elIni || !elFin) return true;
+
+        const valIniStr = elIni.value.trim();
+        const valFinStr = elFin.value.trim();
+
+        if (valIniStr !== '' && valFinStr !== '') {
+            const valIni = parseInt(valIniStr, 10);
+            const valFin = parseInt(valFinStr, 10);
+            if (!isNaN(valIni) && !isNaN(valFin) && valFin < valIni) {
+                elFin.classList.add('border-red-500', 'text-red-600', 'focus:ring-red-500', 'focus:border-red-500', 'bg-red-50');
+                elFin.classList.remove('border-slate-300', 'focus:ring-primary', 'focus:border-primary', 'bg-white');
+                if (elMsg) elMsg.classList.remove('hidden');
+                return false;
+            }
+        }
+
+        elFin.classList.remove('border-red-500', 'text-red-600', 'focus:ring-red-500', 'focus:border-red-500', 'bg-red-50');
+        elFin.classList.add('border-slate-300', 'focus:ring-primary', 'focus:border-primary', 'bg-white');
+        if (elMsg) elMsg.classList.add('hidden');
+        return true;
     }
 
     function restaurarEstadoCabecera() {
@@ -1089,9 +1491,15 @@
                 switchOpTab(estado.tipo_operacion);
             }
 
-            // 9. Resetear explícitamente Fórmula y Cantidad
+            // 9. Fórmula y Cantidad
             const elFormula = document.getElementById('formula_selector');
-            if (elFormula) elFormula.value = '';
+            if (elFormula) {
+                if (estado.formula && elFormula.querySelector(`option[value="${estado.formula}"]`)) {
+                    elFormula.value = estado.formula;
+                } else {
+                    elFormula.value = '';
+                }
+            }
             const elClip = document.getElementById('inventario_selector_clip');
             if (elClip) elClip.value = '';
             const elCascara = document.getElementById('cascara_selector');
@@ -1106,6 +1514,11 @@
                 limpiarColoresEncartonado();
             }
 
+            // 10. Restaurar Selección de Colores Encartonado
+            if (estado.selected_items_encartonado && Array.isArray(estado.selected_items_encartonado)) {
+                selectedItemsEncartonado = estado.selected_items_encartonado;
+            }
+
         } catch (e) {
             console.warn('Error al restaurar cabecera:', e);
         }
@@ -1114,6 +1527,15 @@
     document.addEventListener('DOMContentLoaded', function () {
         setupTrabajadorPredictivo();
         restaurarEstadoCabecera();
+
+        const formulaSelect = document.getElementById('formula_selector');
+        if (formulaSelect) {
+            formulaSelect.addEventListener('change', function() {
+                if (esEncartonado && typeof actualizarCalculadoraEncartonado === 'function') {
+                    actualizarCalculadoraEncartonado();
+                }
+            });
+        }
 
         const wrapFormula = document.getElementById('wrapper_formula');
         const wrapClip = document.getElementById('wrapper_inventario_clip');
@@ -1127,22 +1549,23 @@
         
         const almacenSelect = document.getElementById('codigo_almacen_consumo');
         if (almacenSelect) {
-            almacenSelect.addEventListener('change', verificarStock);
+            almacenSelect.addEventListener('change', function() {
+                verificarStock();
+                if (esEncartonado) {
+                    actualizarOpsDisponiblesEncartonado(this.value);
+                }
+            });
         }
         verificarStock();
-        updatePagination();
-
-        // Auto-add suggested resulting product
-        const sugeridoCodigo = @json($producto_sugerido->codigo ?? null);
-        const sugeridoDesc = @json($producto_sugerido->descripcion ?? null);
-        const esCompletado = '{{ $estado_proceso_actual }}' === 'COMPLETADO';
-        
-        if (sugeridoCodigo && !esCompletado && typeof agregarFilaProductoResultante === 'function') {
-            const resultantesTable = document.getElementById('tbody_resultantes');
-            if (resultantesTable) {
-                agregarFilaProductoResultante(sugeridoCodigo, sugeridoDesc);
+        if (esEncartonado) {
+            renderizarOpsYColores(opsDisponiblesCache);
+            if (typeof actualizarCalculadoraEncartonado === 'function') {
+                actualizarCalculadoraEncartonado();
             }
         }
+        updatePagination();
+
+
     });
 
     function setupSearchableDropdown(rowId) {
@@ -1412,40 +1835,7 @@
         }); 
     }
 
-    function agregarFilaProductoResultante(codigo_inicial = '', desc_inicial = '') {
-        const tbody = document.getElementById('tbody_resultantes');
-        if(!tbody) return;
-        const rowId = 'resultado_' + Date.now() + Math.floor(Math.random()*1000);
-        
-        let unitsHtml = unidadesData.map(u=>`<option value="${u.codigo}" ${u.codigo=='KG'?'selected':''}>${u.codigo}</option>`).join('');
-        
-        const displayVal = desc_inicial ? desc_inicial : (codigo_inicial ? codigo_inicial : '');
-        
-        let html = `<tr id="${rowId}" class="nueva-fila-resultado bg-white hover:bg-slate-50 transition-colors">
-            <td class="px-2 py-2 align-middle relative">
-                <input type="text" class="text-xs py-1.5 px-3 border border-slate-300 rounded focus:ring-primary focus:border-primary c-prod-search w-full min-w-[280px]" placeholder="Buscar Producto Resultante..." value="${displayVal}">
-                <input type="hidden" class="c-prod" value="${codigo_inicial}">
-                <div class="custom-options hidden absolute bg-white border border-slate-200 max-h-48 overflow-y-auto w-full min-w-[300px] z-50 shadow-xl rounded-md mt-1"></div>
-            </td>
-            
-            <td class="px-2 py-2 align-middle">
-                <input type="number" class="text-xs py-1.5 px-2 border border-slate-300 rounded focus:ring-primary focus:border-primary c-cant w-full min-w-[100px]" value="" step="0.01" placeholder="Ej. 100">
-            </td>
-            
-            <td class="px-2 py-2 align-middle">
-                <select class="text-xs py-1.5 px-2 border border-slate-300 rounded focus:ring-primary focus:border-primary w-full min-w-[80px] c-um">${unitsHtml}</select>
-            </td>
-            
-            <td class="px-2 py-2 align-middle text-center">
-                <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-1.5 rounded transition-colors" title="Eliminar fila">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
-            </td>
-        </tr>`;
-        
-        tbody.insertAdjacentHTML('afterbegin', html);
-        setupSearchableDropdown(rowId);
-    }
+
 
     function agregarFila(item = {}) {
         const tbody = document.getElementById('tbody_items');
@@ -1520,6 +1910,18 @@
             </td>
             
             <td class="px-2 py-2 align-middle">
+                <div class="flex items-center space-x-1 w-max">
+                    <input type="number" class="text-xs py-1.5 px-1.5 border border-slate-300 rounded focus:ring-primary focus:border-primary c-iny_ini w-[65px] font-mono" placeholder="Ini" value="${item.inyectada_inicial||''}">
+                    <span class="text-slate-400 font-bold">-</span>
+                    <input type="number" class="text-xs py-1.5 px-1.5 border border-slate-300 rounded focus:ring-primary focus:border-primary c-iny_fin w-[65px] font-mono" placeholder="Fin" value="${item.inyectada_final||''}">
+                </div>
+            </td>
+
+            <td class="px-2 py-2 align-middle">
+                <input type="text" class="text-xs py-1.5 px-2 border border-slate-300 rounded focus:ring-primary focus:border-primary c-ot w-full min-w-[90px] font-mono uppercase" placeholder="Ej: OT-01" value="${item.numero_ot||''}">
+            </td>
+            
+            <td class="px-2 py-2 align-middle">
                   <input type="text" class="text-xs py-1.5 px-2 border border-slate-300 rounded focus:ring-primary focus:border-primary c-obs w-full min-w-[150px]" placeholder="Observación...">
               </td>
             
@@ -1588,6 +1990,9 @@
                 hora_inicio_maquina: r.querySelector('.c-hora_ini_maq').value,
                 fecha_fin_maquina: r.querySelector('.c-fecha_fin_maq').value,
                 hora_fin_maquina: r.querySelector('.c-hora_fin_maq').value,
+                inyectada_inicial: r.querySelector('.c-iny_ini')?.value ? parseInt(r.querySelector('.c-iny_ini').value, 10) : null,
+                inyectada_final: r.querySelector('.c-iny_fin')?.value ? parseInt(r.querySelector('.c-iny_fin').value, 10) : null,
+                numero_ot: r.querySelector('.c-ot') ? r.querySelector('.c-ot').value.trim() : null,
                 observacion: r.querySelector('.c-obs') ? r.querySelector('.c-obs').value : null
             });
         });
@@ -1605,47 +2010,9 @@
             return;
         }
         
-        // Serializar productos resultantes
-        const resultados = document.querySelectorAll('.nueva-fila-resultado');
-        let resultadosData = [];
-        let resultadosError = false;
-        let sumaConsumoKG = 0;
-        let sumaResultanteKG = 0;
-
-        // Sumar consumos en KG solo de materiales (excluyendo actividades)
-        data.forEach(item => {
-            if (item.codigo_tipo_producto !== 'ACT' && item.codigo_unidad_medida === 'KG') {
-                sumaConsumoKG += parseFloat(item.cantidad) || 0;
-            }
-        });
-        
-        resultados.forEach(r => {
-            const prod = r.querySelector('.c-prod').value;
-            const cant = r.querySelector('.c-cant').value;
-            const um = r.querySelector('.c-um').value;
-            
-            if (!prod || !cant) resultadosError = true;
-            if (um === 'KG') {
-                sumaResultanteKG += parseFloat(cant) || 0;
-            }
-            
-            resultadosData.push({
-                codigo_producto: prod,
-                cantidad: cant,
-                codigo_unidad_medida: um
-            });
-        });
-        
-        if (resultadosError) return window.toast("Por favor seleccione un producto y especifique una cantidad en todas las filas de productos resultantes.", 'warning');
-        
-        if (sumaResultanteKG > sumaConsumoKG && sumaConsumoKG > 0) {
-            if (!confirm(`La cantidad de productos resultantes en KG (${sumaResultanteKG} KG) es mayor a la cantidad de materiales consumidos en KG (${sumaConsumoKG} KG).\n\n¿Está seguro de que desea guardar con estos valores?`)) {
-                return;
-            }
-        }
-
         document.getElementById('componentes_json').value = JSON.stringify(data);
-        document.getElementById('productos_resultantes_json').value = JSON.stringify(resultadosData);
+        const prodResEl = document.getElementById('productos_resultantes_json');
+        if (prodResEl) prodResEl.value = '[]';
         document.getElementById('form_masivo').submit();
     }
 
@@ -1654,6 +2021,13 @@
             const form = document.getElementById('form_delete');
             form.action = `${urlDeleteBase}/${id}`;
             form.submit();
+        }
+    }
+
+    function eliminarCarga(ids) {
+        if (confirm('¿Está seguro de anular esta carga completa? Se devolverán los materiales consumidos al inventario y se revertirá el producto generado.')) {
+            document.getElementById('delete_carga_ids').value = JSON.stringify(ids);
+            document.getElementById('form_delete_carga').submit();
         }
     }
 
@@ -1680,7 +2054,7 @@
 
     function switchOpTab(tabName) {
         document.getElementById('tipo_operacion').value = tabName;
-        const tabs = ['inyectado', 'ensamblado', 'encartonado', 'merma_pura', 'recuperado_molido', 'purga', 'limpieza', 'recuperado_maquina', 'merma_clip', 'recuperado_clip', 'merma_cascara', 'merma_carton', 'merma_empaque'];
+        const tabs = ['inyectado', 'ensamblado', 'encartonado', 'embolsado', 'merma_pura', 'recuperado_molido', 'purga', 'limpieza', 'recuperado_maquina', 'merma_clip', 'recuperado_clip', 'merma_cascara', 'merma_carton', 'merma_empaque'];
         tabs.forEach(t => {
             const el = document.getElementById('tab-' + t);
             if (el) {
@@ -1696,6 +2070,8 @@
         const wrapClip = document.getElementById('wrapper_inventario_clip');
         const wrapCascara = document.getElementById('wrapper_inventario_cascara');
         const wrapCarton = document.getElementById('wrapper_inventario_carton');
+        const wrapEmpaque = document.getElementById('wrapper_inventario_empaque');
+        const wrapBolsaConsumo = document.getElementById('wrapper_bolsa_empaque');
         const panelClipRecuperado = document.getElementById('panel_clip_recuperado');
         const panelColores = document.getElementById('panel_colores_encartonado');
         
@@ -1703,11 +2079,26 @@
         if (wrapClip) wrapClip.classList.add('hidden');
         if (wrapCascara) wrapCascara.classList.add('hidden');
         if (wrapCarton) wrapCarton.classList.add('hidden');
+        if (wrapEmpaque) wrapEmpaque.classList.add('hidden');
+        if (wrapBolsaConsumo) wrapBolsaConsumo.classList.add('hidden');
         if (panelClipRecuperado) panelClipRecuperado.classList.add('hidden');
         if (panelColores) panelColores.classList.add('hidden');
 
         const btn = document.getElementById('btn_cargar');
         const lblFormula = document.getElementById('lbl_formula');
+        const lblCantidad = document.getElementById('lbl_cantidad_global');
+        
+        if (lblCantidad) {
+            if (tabName === 'encartonado') {
+                lblCantidad.innerText = 'Cant. a producir (SET)';
+            } else {
+                lblCantidad.innerText = 'Cant. (KG)';
+            }
+        }
+
+        if (typeof actualizarCalculadoraEncartonado === 'function') {
+            actualizarCalculadoraEncartonado();
+        }
         
         if (tabName === 'inyectado') {
             if (wrapFormula) wrapFormula.classList.remove('hidden');
@@ -1724,11 +2115,31 @@
             btn.innerHTML = '<i class="fas fa-box-open mr-2"></i>Cargar Encartonado';
             btn.className = 'px-5 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-md shadow-sm transition';
             if (lblFormula) lblFormula.innerText = 'Fórmula Encartonado';
-        } else if (tabName === 'merma_empaque') {
+        } else if (tabName === 'embolsado') {
             if (wrapFormula) wrapFormula.classList.remove('hidden');
-            btn.innerHTML = '<i class="fas fa-box mr-2"></i>Registrar Merma Empaque';
-            btn.className = 'px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-md shadow-sm transition';
-            if (lblFormula) lblFormula.innerText = 'Fórmula / Producto';
+            if (wrapBolsaConsumo) wrapBolsaConsumo.classList.remove('hidden');
+            btn.innerHTML = '<i class="fas fa-box-open mr-2"></i>Cargar Embolsado';
+            btn.className = 'px-5 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-md shadow-sm transition';
+            if (lblFormula) lblFormula.innerText = 'Fórmula / Producto a Embolsar';
+            if (lblCantidad) lblCantidad.innerText = 'Cant. a producir (BOL/PAQ)';
+        } else if (tabName === 'merma_empaque') {
+            if (esTroquelado) {
+                if (wrapFormula) wrapFormula.classList.remove('hidden');
+                btn.innerHTML = '<i class="fas fa-trash-alt mr-2"></i>Registrar Merma Bolsa / Empaque';
+                btn.className = 'px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-md shadow-sm transition';
+                if (lblFormula) lblFormula.innerText = 'Fórmula Troquelado';
+                if (lblCantidad) lblCantidad.innerText = 'Cant. Merma (KG)';
+            } else {
+                if (wrapEmpaque) {
+                    wrapEmpaque.classList.remove('hidden');
+                } else if (wrapFormula) {
+                    wrapFormula.classList.remove('hidden');
+                }
+                btn.innerHTML = '<i class="fas fa-trash-alt mr-2"></i>Registrar Merma Bolsa / Empaque';
+                btn.className = 'px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-md shadow-sm transition';
+                if (lblFormula) lblFormula.innerText = 'Bolsa / Empaque Dañado';
+                if (lblCantidad) lblCantidad.innerText = 'Cant. Merma (UNI)';
+            }
         } else if (tabName === 'merma_clip') {
             if (esTroquelado) {
                 if (wrapFormula) wrapFormula.classList.remove('hidden');
@@ -1852,11 +2263,11 @@
         let formula = document.getElementById('formula_selector').value;
         
         if (tipo_operacion === 'encartonado') {
-            if (selectedColorsEncartonado.length !== 4) {
+            if (selectedItemsEncartonado.length !== 4) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Selección de Colores Incompleta',
-                    text: 'Debe seleccionar exactamente 4 colores para el proceso de encartonado (Actualmente seleccionados: ' + selectedColorsEncartonado.length + ').'
+                    text: 'Debe seleccionar exactamente 4 colores para el proceso de encartonado (Actualmente seleccionados: ' + selectedItemsEncartonado.length + ').'
                 });
                 return;
             }
@@ -1869,6 +2280,13 @@
             }
             destino_merma_clip = 'desecho';
         } else if (tipo_operacion === 'merma_empaque') {
+            if (esTroquelado) {
+                formula = document.getElementById('formula_selector').value;
+            } else {
+                const selEmpaque = document.getElementById('empaque_selector');
+                formula = (selEmpaque && selEmpaque.value) ? selEmpaque.value : document.getElementById('formula_selector').value;
+            }
+        } else if (tipo_operacion === 'embolsado') {
             formula = document.getElementById('formula_selector').value;
         } else if (tipo_operacion === 'recuperado_clip') {
             formula = document.getElementById('inventario_selector_clip').value;
@@ -1899,13 +2317,37 @@
             return;
         }
 
+        if (inyectada_inicial !== null && inyectada_inicial !== '' && inyectada_final !== null && inyectada_final !== '') {
+            const numIni = parseInt(inyectada_inicial, 10);
+            const numFin = parseInt(inyectada_final, 10);
+            if (!isNaN(numIni) && !isNaN(numFin) && numFin < numIni) {
+                validarInyectadasLive();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Inyectada Final Inválida',
+                    html: `El contador de <b>Inyectada Final (${numFin})</b> no puede ser menor a la <b>Inyectada Inicial (${numIni})</b>.<br><br>` +
+                          `Por favor, verifique y corrija los valores antes de registrar la producción.`
+                });
+                return;
+            }
+        }
+
         const cantIngresada = parseFloat(cantidad) || 0;
         if (cantIngresada < 0) {
             Swal.fire('Atención', 'La cantidad no puede ser un valor negativo.', 'warning');
             return;
         }
 
-        if (esTroquelado && pesoNeto > 0 && (pesoConsumido + cantIngresada) > (pesoNeto + 0.001)) {
+        if (tipo_operacion === 'merma_empaque' && esTroquelado) {
+            if (pesoInicial > 0 && (mermaEmpaqueTotal + cantIngresada) > (pesoInicial + 0.001)) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Merma de Empaque Inválida',
+                    html: `El peso ingresado de film (<b>${cantIngresada.toFixed(2)} KG</b>) supera el peso bruto inicial del rollo (${pesoInicial.toFixed(2)} KG).`
+                });
+                return;
+            }
+        } else if (esTroquelado && pesoNeto > 0 && (pesoConsumido + cantIngresada) > (pesoNeto + 0.001)) {
             const saldoActual = Math.max(0, pesoNeto - pesoConsumido);
             Swal.fire({
                 icon: 'error',
@@ -1931,7 +2373,8 @@
             _token: '{{ csrf_token() }}',
             tipo_operacion: operacion_para_backend,
             codigo_formula: formula,
-            colores_seleccionados: selectedColorsEncartonado,
+            colores_seleccionados: (tipo_operacion === 'encartonado') ? selectedItemsEncartonado : [],
+            codigo_bolsa: document.getElementById('bolsa_empaque_selector') ? document.getElementById('bolsa_empaque_selector').value : null,
             cantidad_total: cantidad,
             codigo_molde: molde,
             codigo_centro_trabajo: centro,

@@ -78,120 +78,228 @@
     </div>
     @endif
 
-    <div class="card overflow-x-auto">
-        <table class="w-full text-left border-collapse text-xs sm:text-sm">
+    <div class="card overflow-x-auto shadow-sm border border-slate-300 rounded-2xl">
+        <table class="w-full text-left border-collapse text-xs sm:text-sm min-w-[1000px]">
             <thead>
                 <tr class="bg-slate-900 text-slate-200 uppercase tracking-wider font-bold text-center text-xs">
-                    <th class="p-3 border border-slate-800 align-middle" rowspan="2">Fecha</th>
-                    <th class="p-3 border border-slate-800 align-middle" rowspan="2">Producto / Almacén</th>
-                    <th class="p-3 border border-slate-800 align-middle" rowspan="2">Tipo Operac.</th>
-                    <th class="p-3 border border-slate-800 align-middle" rowspan="2">Documento</th>
-                    <th class="p-2 border border-slate-800" colspan="3">Entradas</th>
-                    <th class="p-2 border border-slate-800" colspan="3">Salidas</th>
-                    <th class="p-2 border border-slate-800" colspan="3">Saldo Final</th>
+                    <th class="p-3 border border-slate-800 align-middle w-24" rowspan="2">Fecha</th>
+                    <th class="p-3 border border-slate-800 align-middle w-24" rowspan="2">Tipo Operac.</th>
+                    <th class="p-3 border border-slate-800 align-middle w-48" rowspan="2">Documento / Ref.</th>
+                    <th class="p-2 border border-slate-800 text-emerald-400" colspan="3">Entradas</th>
+                    <th class="p-2 border border-slate-800 text-red-400" colspan="3">Salidas</th>
+                    <th class="p-2 border border-slate-800 text-blue-300" colspan="3">Saldo Final</th>
                 </tr>
                 <tr class="bg-slate-800 text-slate-300 text-[10px] uppercase tracking-wider font-bold text-center">
-                    <th class="p-2 border border-slate-700">Cantidad</th>
-                    <th class="p-2 border border-slate-700">C. Unitario</th>
-                    <th class="p-2 border border-slate-700">Costo Total</th>
-                    <th class="p-2 border border-slate-700">Cantidad</th>
-                    <th class="p-2 border border-slate-700">C. Unitario</th>
-                    <th class="p-2 border border-slate-700">Costo Total</th>
-                    <th class="p-2 border border-slate-700">Cantidad</th>
-                    <th class="p-2 border border-slate-700">C. Unitario</th>
-                    <th class="p-2 border border-slate-700">Costo Total</th>
+                    <th class="p-2 border border-slate-700 w-24 text-emerald-400">Cantidad</th>
+                    <th class="p-2 border border-slate-700 w-24">C. Unitario</th>
+                    <th class="p-2 border border-slate-700 w-28 text-emerald-400">Costo Total</th>
+                    <th class="p-2 border border-slate-700 w-24 text-red-400">Cantidad</th>
+                    <th class="p-2 border border-slate-700 w-24">C. Unitario</th>
+                    <th class="p-2 border border-slate-700 w-28 text-red-400">Costo Total</th>
+                    <th class="p-2 border border-slate-700 w-24 text-blue-300">Cantidad</th>
+                    <th class="p-2 border border-slate-700 w-24">C. Promedio</th>
+                    <th class="p-2 border border-slate-700 w-28 text-blue-300">Total Valorizado</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
-                @forelse($movimientos as $mov)
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="p-3 border-r border-slate-100 text-slate-500 whitespace-nowrap text-[11px] text-center">
-                        {{ \Carbon\Carbon::parse($mov->fecha_movimiento)->format('d/m/Y') }}
-                    </td>
-                    <td class="p-3 border-r border-slate-100 font-semibold text-slate-800">
-                        <span class="text-xs text-indigo-600 block mb-0.5">{{ $mov->codigo_producto }}</span>
-                        {{ $mov->producto }}
-                        <p class="text-[10px] text-slate-400 mt-0.5">{{ $mov->almacen }}</p>
-                    </td>
-                    <td class="p-3 border-r border-slate-100 text-center">
-                        @php
-                            $badgeColor = [
-                                'INGRESO' => 'green',
-                                'SALIDA'  => 'red',
-                                'AJUSTE'  => 'amber',
-                                'EXTORNO' => 'purple',
-                            ][$mov->tipo_movimiento] ?? 'slate';
-                        @endphp
-                        <x-badge color="{{ $badgeColor }}">{{ $mov->tipo_movimiento }}</x-badge>
-                    </td>
-                    <td class="p-3 border-r border-slate-100">
-                        <div class="flex items-center gap-2">
-                            <div>
-                                <span class="text-slate-600 font-medium text-[11px]">{{ $mov->documento }}</span>
-                                <p class="text-[10px] text-slate-400">{{ $mov->numero_documento }}</p>
+            <tbody class="divide-y divide-slate-100 font-sans">
+                @forelse($almacenesConProductos as $codAlmacen => $productosDelAlmacen)
+                    @php
+                        $primerItem = $productosDelAlmacen->first();
+                        $almacenNombre = $primerItem->almacen_descripcion ?? $codAlmacen;
+                    @endphp
+
+                    <!-- ========================================== -->
+                    <!-- SECCIÓN ALMACÉN -->
+                    <!-- ========================================== -->
+                    <tr class="bg-slate-800 text-white border-t-2 border-slate-900">
+                        <td colspan="12" class="py-2.5 px-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="px-2 py-0.5 rounded bg-emerald-500 text-slate-950 font-mono font-black text-xs">
+                                        {{ $codAlmacen }}
+                                    </span>
+                                    <span class="font-black text-sm uppercase tracking-wide">
+                                        {{ $almacenNombre }}
+                                    </span>
+                                </div>
+                                <span class="text-xs text-slate-300 font-semibold">
+                                    <i class="fas fa-warehouse mr-1 text-slate-400"></i> Almacén Físico
+                                </span>
                             </div>
-                            @if($mov->tipo_movimiento === 'INGRESO' && in_array($mov->documento, ['RECEPCION_PEP', 'RECEPCION_PEP_GLOBAL', 'PRODUCCION', 'MERMA']))
-                            <button type="button" onclick="verDesgloseCosto({{ $mov->id_kardex }})" class="text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 p-1 rounded transition-colors" title="Ver desglose de costo">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                            @endif
-                        </div>
-                    </td>
-                    <!-- ENTRADAS -->
-                    <td class="p-3 border-r border-slate-100 text-right font-semibold text-green-700 bg-green-50/30">
-                        {{ $mov->cantidad_entrada > 0 ? number_format($mov->cantidad_entrada, 2) : '-' }}
-                    </td>
-                    <td class="p-3 border-r border-slate-100 text-right text-slate-500 bg-green-50/30">
-                        @if($mov->cantidad_entrada > 0)
-                            {{ number_format($mov->costo_entrada > 0 ? $mov->costo_entrada : ($mov->total_entrada / $mov->cantidad_entrada), 6) }}
-                        @else
-                            -
-                        @endif
-                    </td>
-                    <td class="p-3 border-r border-slate-200 text-right font-medium text-green-700 bg-green-50/30">
-                        {{ $mov->total_entrada > 0 ? number_format($mov->total_entrada, 2) : '-' }}
-                    </td>
-                    
-                    <!-- SALIDAS -->
-                    <td class="p-3 border-r border-slate-100 text-right font-semibold text-red-700 bg-red-50/30">
-                        {{ $mov->cantidad_salida > 0 ? number_format($mov->cantidad_salida, 2) : '-' }}
-                    </td>
-                    <td class="p-3 border-r border-slate-100 text-right text-slate-500 bg-red-50/30">
-                        @if($mov->cantidad_salida > 0)
-                            {{ number_format($mov->costo_salida > 0 ? $mov->costo_salida : ($mov->total_salida / $mov->cantidad_salida), 6) }}
-                        @else
-                            -
-                        @endif
-                    </td>
-                    <td class="p-3 border-r border-slate-200 text-right font-medium text-red-700 bg-red-50/30">
-                        {{ $mov->total_salida > 0 ? number_format($mov->total_salida, 2) : '-' }}
-                    </td>
-                    
-                    <!-- SALDO FINAL -->
-                    <td class="p-3 border-r border-slate-100 text-right font-bold text-slate-800">
-                        {{ number_format($mov->cantidad_saldo, 2) }}
-                    </td>
-                    <td class="p-3 border-r border-slate-100 text-right text-slate-500">
-                        {{ $mov->costo_promedio > 0 ? number_format($mov->costo_promedio, 6) : '0.000000' }}
-                    </td>
-                    <td class="p-3 text-right font-bold text-primary">
-                        {{ $mov->total_saldo > 0 ? number_format($mov->total_saldo, 2) : '0.00' }}
-                    </td>
-                </tr>
+                        </td>
+                    </tr>
+
+                    <!-- ========================================== -->
+                    <!-- PRODUCTOS EN ESTE ALMACÉN -->
+                    <!-- ========================================== -->
+                    @foreach($productosDelAlmacen as $prod)
+                        @php
+                            $key = $prod->codigo_almacen . '__' . $prod->codigo_producto;
+                            $movs = $movimientosPorGrupo->get($key, collect());
+                            $invData = $stockActualPorGrupo->get($key, []);
+                            $ultimoMov = $movs->last();
+                            $saldoCant = $invData['stock_actual'] ?? ($ultimoMov ? $ultimoMov->cantidad_saldo : 0);
+                            $saldoCostoProm = $invData['costo_promedio'] ?? ($ultimoMov ? $ultimoMov->costo_promedio : 0);
+                            $saldoTotalVal = $invData['total_valorizado'] ?? ($ultimoMov ? $ultimoMov->total_saldo : 0);
+                            $totEntradaCant = $movs->sum('cantidad_entrada');
+                            $totEntradaVal  = $movs->sum('total_entrada');
+                            $totSalidaCant  = $movs->sum('cantidad_salida');
+                            $totSalidaVal   = $movs->sum('total_salida');
+                        @endphp
+
+                        <!-- FILA ENCABEZADO DE PRODUCTO -->
+                        <tr class="bg-indigo-50/90 text-indigo-950 border-y border-indigo-200">
+                            <td colspan="12" class="py-2 px-4 font-bold">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-indigo-600 font-black">PRODUCTO :</span>
+                                        <span class="font-mono bg-white px-2 py-0.5 rounded border border-indigo-200 text-indigo-900 text-xs">
+                                            {{ $prod->codigo_producto }}
+                                        </span>
+                                        <span class="uppercase font-black text-slate-900">
+                                            {{ $prod->producto_descripcion }}
+                                        </span>
+                                        @if($prod->codigo_tipo_producto)
+                                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold 
+                                                @if($prod->codigo_tipo_producto === 'PEP') bg-blue-100 text-blue-800
+                                                @elseif($prod->codigo_tipo_producto === 'MTP') bg-emerald-100 text-emerald-800
+                                                @elseif($prod->codigo_tipo_producto === 'INS') bg-amber-100 text-amber-800
+                                                @else bg-slate-200 text-slate-700
+                                                @endif">
+                                                {{ $prod->codigo_tipo_producto }}
+                                            </span>
+                                        @endif
+                                        <span class="text-slate-500 font-normal text-xs">
+                                            (U.M.: {{ $prod->unidad_medida_desc ?? $prod->codigo_unidad_medida }})
+                                        </span>
+                                    </div>
+                                    <div class="flex flex-wrap items-center gap-2.5 text-xs">
+                                        <span class="text-emerald-700 font-bold" title="Total entradas en este almacén">
+                                            Entradas: +{{ number_format($totEntradaCant, 2) }} <span class="text-[10px] text-emerald-600 font-normal">(S/ {{ number_format($totEntradaVal, 2) }})</span>
+                                        </span>
+                                        <span class="text-red-700 font-bold" title="Total salidas en este almacén">
+                                            Salidas: -{{ number_format($totSalidaCant, 2) }} <span class="text-[10px] text-red-600 font-normal">(S/ {{ number_format($totSalidaVal, 2) }})</span>
+                                        </span>
+                                        <span class="px-2.5 py-0.5 rounded bg-blue-100 text-blue-900 font-black border border-blue-200" title="Saldo actual en este almacén">
+                                            Saldo: {{ number_format($saldoCant, 2) }} {{ $prod->codigo_unidad_medida }} | C.P.: S/ {{ number_format($saldoCostoProm, 4) }} | Total: S/ {{ number_format($saldoTotalVal, 2) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- MOVIMIENTOS VALORIZADOS DEL PRODUCTO EN ESTE ALMACÉN -->
+                        @forelse($movs as $mov)
+                            <tr class="hover:bg-slate-50/80 transition-colors">
+                                {{-- Fecha --}}
+                                <td class="p-2.5 border-r border-slate-100 text-slate-600 whitespace-nowrap text-xs text-center font-medium">
+                                    <span class="font-bold text-slate-800 block text-[11px]">
+                                        {{ \Carbon\Carbon::parse($mov->fecha_movimiento)->format('d/m/Y') }}
+                                    </span>
+                                    <span class="text-[10px] text-slate-400">
+                                        {{ \Carbon\Carbon::parse($mov->fecha_movimiento)->format('H:i') }}
+                                    </span>
+                                </td>
+
+                                {{-- Tipo Operación --}}
+                                <td class="p-2.5 border-r border-slate-100 text-center whitespace-nowrap">
+                                    @php
+                                        $badgeColor = [
+                                            'INGRESO' => 'green',
+                                            'SALIDA'  => 'red',
+                                            'AJUSTE'  => 'amber',
+                                            'EXTORNO' => 'purple',
+                                        ][$mov->tipo_movimiento] ?? 'slate';
+                                    @endphp
+                                    <x-badge color="{{ $badgeColor }}">{{ $mov->tipo_movimiento }}</x-badge>
+                                </td>
+
+                                {{-- Documento / Referencia --}}
+                                <td class="p-2.5 border-r border-slate-100">
+                                    <div class="flex items-center gap-2">
+                                        <div>
+                                            <span class="text-slate-800 font-bold text-xs block">{{ $mov->documento ?? 'SIN DOCUMENTO' }}</span>
+                                            @if($mov->numero_documento)
+                                                <span class="font-mono text-[10px] text-slate-500 font-medium">#{{ $mov->numero_documento }}</span>
+                                            @endif
+                                            @if($mov->observaciones)
+                                                <p class="text-[10px] text-slate-400 truncate max-w-[180px]" title="{{ $mov->observaciones }}">
+                                                    {{ $mov->observaciones }}
+                                                </p>
+                                            @endif
+                                        </div>
+                                        @if($mov->tipo_movimiento === 'INGRESO' && in_array($mov->documento, ['RECEPCION_PEP', 'RECEPCION_PEP_GLOBAL', 'PRODUCCION', 'MERMA']))
+                                            <button type="button" onclick="verDesgloseCosto({{ $mov->id_kardex }})" class="text-blue-500 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 p-1 rounded transition-colors shrink-0 ml-auto" title="Ver desglose de costo">
+                                                <i class="fas fa-eye text-xs"></i>
+                                            </button>
+                                        @endif
+                                    </div>
+                                </td>
+
+                                <!-- ENTRADAS -->
+                                <td class="p-2.5 border-r border-slate-100 text-right font-semibold text-emerald-700 bg-emerald-50/20 whitespace-nowrap">
+                                    {{ $mov->cantidad_entrada > 0 ? number_format($mov->cantidad_entrada, 2) : '-' }}
+                                </td>
+                                <td class="p-2.5 border-r border-slate-100 text-right text-slate-600 bg-emerald-50/20 whitespace-nowrap font-mono text-[11px]">
+                                    @if($mov->cantidad_entrada > 0)
+                                        {{ number_format($mov->costo_entrada > 0 ? $mov->costo_entrada : ($mov->total_entrada / $mov->cantidad_entrada), 4) }}
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+                                <td class="p-2.5 border-r border-slate-200 text-right font-bold text-emerald-700 bg-emerald-50/30 whitespace-nowrap font-mono">
+                                    {{ $mov->total_entrada > 0 ? number_format($mov->total_entrada, 2) : '-' }}
+                                </td>
+
+                                <!-- SALIDAS -->
+                                <td class="p-2.5 border-r border-slate-100 text-right font-semibold text-red-700 bg-red-50/20 whitespace-nowrap">
+                                    {{ $mov->cantidad_salida > 0 ? number_format($mov->cantidad_salida, 2) : '-' }}
+                                </td>
+                                <td class="p-2.5 border-r border-slate-100 text-right text-slate-600 bg-red-50/20 whitespace-nowrap font-mono text-[11px]">
+                                    @if($mov->cantidad_salida > 0)
+                                        {{ number_format($mov->costo_salida > 0 ? $mov->costo_salida : ($mov->total_salida / $mov->cantidad_salida), 4) }}
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+                                <td class="p-2.5 border-r border-slate-200 text-right font-bold text-red-700 bg-red-50/30 whitespace-nowrap font-mono">
+                                    {{ $mov->total_salida > 0 ? number_format($mov->total_salida, 2) : '-' }}
+                                </td>
+
+                                <!-- SALDO FINAL -->
+                                <td class="p-2.5 border-r border-slate-100 text-right font-black text-slate-900 bg-blue-50/20 whitespace-nowrap font-mono">
+                                    {{ number_format($mov->cantidad_saldo, 2) }}
+                                </td>
+                                <td class="p-2.5 border-r border-slate-100 text-right text-slate-700 bg-blue-50/20 whitespace-nowrap font-mono text-[11px]">
+                                    {{ $mov->costo_promedio > 0 ? number_format($mov->costo_promedio, 4) : '0.0000' }}
+                                </td>
+                                <td class="p-2.5 text-right font-black text-indigo-950 bg-blue-50/30 whitespace-nowrap font-mono">
+                                    {{ $mov->total_saldo > 0 ? number_format($mov->total_saldo, 2) : '0.00' }}
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="12" class="p-3 text-center text-slate-400 italic">
+                                    Sin movimientos registrados para este producto en los filtros seleccionados.
+                                </td>
+                            </tr>
+                        @endforelse
+
+                    @endforeach
                 @empty
-                <tr>
-                    <td colspan="13" class="p-12 text-center text-slate-400">
-                        <i class="fas fa-history text-4xl mb-3 opacity-20"></i>
-                        <p class="font-semibold">No hay movimientos registrados en el historial.</p>
-                    </td>
-                </tr>
+                    <tr>
+                        <td colspan="12" class="p-12 text-center text-slate-400">
+                            <i class="fas fa-history text-4xl mb-3 opacity-20"></i>
+                            <p class="font-semibold">No hay movimientos registrados en el historial para los filtros seleccionados.</p>
+                        </td>
+                    </tr>
                 @endforelse
             </tbody>
         </table>
         
-        @if($movimientos->hasPages())
-            <div class="p-4 border-t border-slate-100 bg-slate-50">
-                {{ $movimientos->links() }}
+        @if($gruposPaginados->hasPages())
+            <div class="p-4 border-t border-slate-200 bg-slate-50 no-print">
+                {{ $gruposPaginados->links() }}
             </div>
         @endif
     </div>

@@ -41,7 +41,7 @@
                     </div>
                     <div>
                         <span class="text-xs text-slate-500 font-semibold uppercase">Fecha</span>
-                        <p class="text-slate-700">{{ \Carbon\Carbon::parse($requerimiento->fecha_creacion)->format('d/m/Y H:i') }}</p>
+                        <p class="text-slate-700">{{ \Carbon\Carbon::parse($requerimiento->fecha_requerimiento ?? $requerimiento->fecha_creacion)->format('d/m/Y') }}</p>
                     </div>
                     @if($requerimiento->ordenProduccion)
                     <div>

@@ -25,8 +25,11 @@
         <div class="card p-5 mb-6">
             <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Detalles Generales</h3>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <x-form-field label="Fecha Transferencia" name="fecha_transferencia" required="true">
-                    <input type="date" name="fecha_transferencia" value="{{ date('Y-m-d') }}" class="input-field bg-slate-50" required max="{{ date('Y-m-d') }}">
+                <x-form-field label="Fecha y Hora" name="fecha_transferencia" required="true">
+                    <div class="grid grid-cols-5 gap-2">
+                        <input type="date" name="fecha_transferencia" value="{{ date('Y-m-d') }}" class="col-span-3 input-field bg-slate-50" required max="{{ date('Y-m-d') }}">
+                        <input type="time" name="hora_transferencia" value="{{ date('H:i') }}" class="col-span-2 input-field bg-slate-50" required>
+                    </div>
                 </x-form-field>
                 
                 <x-form-field label="Almacén de Origen" name="codigo_almacen_origen" required="true">

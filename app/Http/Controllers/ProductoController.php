@@ -197,6 +197,10 @@ class ProductoController extends Controller
             }
         }
 
+        $sinActividades = $request->boolean('sin_actividades') || $request->has('sin_actividades') || $request->has('compras');
+        $almacenFiltro = $request->input('almacen', $request->input('codigo_almacen', ''));
+        $soloMateriasPrimas = $request->boolean('solo_materias_primas') || $request->has('requerimiento') || $request->has('materias_primas');
+
         $query = Producto::with(['tipo', 'unidad'])
             ->where('estado', 1)
             ->where(function ($q) use ($search) {
@@ -206,21 +210,62 @@ class ProductoController extends Controller
 
         if ($tipo) {
             $query->where('codigo_tipo_producto', $tipo);
+        } elseif ($soloMateriasPrimas) {
+            // Requerimientos de Planta solo solicitan Materias Primas e Insumos
+            $query->whereIn('codigo_tipo_producto', ['MTP', 'INS']);
+        } elseif ($sinActividades || true) {
+            // Por defecto, la búsqueda general de productos no debe incluir actividades operativas
+            $query->where('codigo_tipo_producto', '!=', 'ACT')
+                  ->where('codigo', 'NOT LIKE', 'ACT-%');
+        }
+
+        // Si se solicita filtrar por almacén específico (ej: ALM03 Materias Primas)
+        if ($almacenFiltro) {
+            $query->whereExists(function ($sub) use ($almacenFiltro) {
+                $sub->select(\Illuminate\Support\Facades\DB::raw(1))
+                    ->from('inventario')
+                    ->whereColumn('inventario.codigo_producto', 'producto.codigo')
+                    ->where('inventario.codigo_almacen', $almacenFiltro);
+            });
+        }
+
+        // Subquery para obtener el stock disponible en almacén de materias primas
+        $almacenParaStock = $almacenFiltro ?: ($soloMateriasPrimas ? 'ALM03' : null);
+        if ($almacenParaStock) {
+            $query->select('producto.*')->selectSub(function ($sub) use ($almacenParaStock) {
+                $sub->from('inventario')
+                    ->selectRaw('COALESCE(SUM(stock_actual), 0)')
+                    ->whereColumn('inventario.codigo_producto', 'producto.codigo')
+                    ->where('inventario.codigo_almacen', $almacenParaStock);
+            }, 'stock_almacen');
         }
 
         $productos = $query->orderBy('descripcion', 'asc')
-            ->limit(30)
+            ->limit(35)
             ->get();
 
         return response()->json(
-            $productos->map(fn($p) => [
-                'id'                     => $p->codigo,
-                'text'                   => "[{$p->codigo}] {$p->descripcion}",
-                'codigo_tipo_producto'   => $p->codigo_tipo_producto,
-                'descripcion_tipo_producto' => $p->tipo?->descripcion ?? $p->codigo_tipo_producto,
-                'codigo_unidad_medida'   => $p->codigo_unidad_medida,
-                'unidad_medida'          => $p->unidad?->codigo ?? $p->codigo_unidad_medida,
-            ])
+            $productos->map(function ($p) use ($almacenParaStock) {
+                $stock = isset($p->stock_almacen) ? floatval($p->stock_almacen) : null;
+                $um = $p->unidad?->codigo ?? $p->codigo_unidad_medida ?? '';
+                $tipoDesc = $p->tipo?->descripcion ?? $p->codigo_tipo_producto ?? '';
+                
+                $labelDesc = "[{$p->codigo}] {$p->descripcion}";
+                if ($stock !== null) {
+                    $labelDesc .= " — Stock: " . number_format($stock, 2) . " " . $um;
+                }
+
+                return [
+                    'id'                        => $p->codigo,
+                    'text'                      => $labelDesc,
+                    'descripcion'               => $p->descripcion,
+                    'codigo_tipo_producto'      => $p->codigo_tipo_producto,
+                    'descripcion_tipo_producto' => $tipoDesc,
+                    'codigo_unidad_medida'      => $p->codigo_unidad_medida,
+                    'unidad_medida'             => $um,
+                    'stock'                     => $stock,
+                ];
+            })
         );
     }
 

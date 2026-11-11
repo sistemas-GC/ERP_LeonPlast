@@ -68,6 +68,13 @@ class KardexService
         $movimientos = DB::table('kardex')
             ->where('codigo_producto', $codigoProducto)
             ->where('codigo_almacen', $codigoAlmacen)
+            ->where(function($q) {
+                $q->whereNull('observaciones')
+                  ->orWhere(function($subq) {
+                      $subq->where('observaciones', 'NOT LIKE', '%[ANULADO]%')
+                           ->where('observaciones', 'NOT LIKE', '%[EXTORNADO]%');
+                  });
+            })
             ->orderBy('fecha_movimiento', 'asc')
             ->orderBy('id_kardex', 'asc')
             ->lockForUpdate()

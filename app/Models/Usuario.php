@@ -24,11 +24,13 @@ class Usuario extends Authenticatable
         'email',
         'rol',
         'ultimo_login',
-        'activo'
+        'activo',
+        'remember_token',
     ];
 
     protected $hidden = [
         'contrasena_hash',
+        'remember_token',
     ];
 
     // Le indicamos a Laravel qué campo usar como contraseña para el Login

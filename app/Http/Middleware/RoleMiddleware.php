@@ -62,6 +62,36 @@ class RoleMiddleware
                 } else {
                     $slugToCheck = 'inventario.' . $parts[1];
                 }
+            } elseif ($parts[0] === 'produccion' && isset($parts[1])) {
+                if ($parts[1] === 'transferencias') {
+                    $slugToCheck = 'produccion.transferencias.index';
+                } elseif ($parts[1] === 'ordenes') {
+                    if (isset($parts[2]) && in_array($parts[2], ['create', 'store'])) {
+                        $slugToCheck = 'produccion.ordenes.create';
+                    } elseif (isset($parts[2]) && in_array($parts[2], ['destroy', 'finalizar'])) {
+                        $slugToCheck = 'produccion.ordenes.finalizar';
+                    } else {
+                        $slugToCheck = 'produccion.ordenes.index';
+                    }
+                } elseif ($parts[1] === 'ingresos') {
+                    $slugToCheck = 'produccion.ingresos';
+                }
+            } elseif ($parts[0] === 'ordenes' && isset($parts[1]) && $parts[1] === 'procesos') {
+                if (isset($parts[2])) {
+                    if (in_array($parts[2], ['create', 'store'])) {
+                        $slugToCheck = 'ordenes.procesos.create';
+                    } elseif (in_array($parts[2], ['ejecutar', 'componentes', 'ejecucion_agrupada'])) {
+                        $slugToCheck = 'ordenes.procesos.ejecutar';
+                    } elseif (in_array($parts[2], ['destroy', 'finalizar'])) {
+                        $slugToCheck = 'ordenes.procesos.finalizar';
+                    } else {
+                        $slugToCheck = 'ordenes.procesos.index';
+                    }
+                } else {
+                    $slugToCheck = 'ordenes.procesos.index';
+                }
+            } elseif ($parts[0] === 'api' && isset($parts[1]) && in_array($parts[1], ['formulas', 'verificar_stock', 'encartonado'])) {
+                $slugToCheck = 'ordenes.procesos.ejecutar';
             } elseif ($parts[0] === 'terceros' && isset($parts[1])) {
                 $slugToCheck = 'terceros.' . $parts[1] . '.index';
             } elseif ($parts[0] === 'reportes' && isset($parts[1])) {

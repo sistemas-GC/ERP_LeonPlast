@@ -19,11 +19,7 @@ class OperacionProduccionController extends Controller
             });
         }
 
-        $operaciones = $query->orderBy('descripcion', 'asc')->paginate(10);
-
-        if ($request->ajax()) {
-            return view('tablas_maestras.operacion_produccion.table', compact('operaciones'))->render();
-        }
+        $operaciones = $query->orderBy('descripcion', 'asc')->paginate(10)->appends($request->all());
 
         return view('tablas_maestras.operacion_produccion.index', compact('operaciones', 'search'));
     }

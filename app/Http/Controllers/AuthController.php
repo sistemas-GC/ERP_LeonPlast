@@ -26,12 +26,29 @@ class AuthController extends Controller
 
         $this->ensureIsNotRateLimited($request);
 
-        $credentials = [
-            'nombre_usuario' => $request->input('nombre_usuario'),
-            'password' => $request->input('password'),
-        ];
+        $loginInput = trim($request->input('nombre_usuario'));
+        $primaryField = filter_var($loginInput, FILTER_VALIDATE_EMAIL) ? 'email' : 'nombre_usuario';
+        $secondaryField = ($primaryField === 'email') ? 'nombre_usuario' : 'email';
 
-        if (Auth::guard('web')->attempt(array_merge($credentials, ['activo' => 1]), $request->filled('remember'))) {
+        $remember = $request->filled('remember');
+
+        // Intento 1: campo principal detectado (email o nombre_usuario)
+        $attemptSuccess = Auth::guard('web')->attempt([
+            $primaryField => $loginInput,
+            'password' => $request->input('password'),
+            'activo' => 1,
+        ], $remember);
+
+        // Intento 2: si no coincidió, probar con el otro campo por compatibilidad
+        if (!$attemptSuccess) {
+            $attemptSuccess = Auth::guard('web')->attempt([
+                $secondaryField => $loginInput,
+                'password' => $request->input('password'),
+                'activo' => 1,
+            ], $remember);
+        }
+
+        if ($attemptSuccess) {
             RateLimiter::clear($this->throttleKey($request));
 
             $request->session()->regenerate();

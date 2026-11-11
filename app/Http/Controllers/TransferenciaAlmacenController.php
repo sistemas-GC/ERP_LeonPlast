@@ -119,11 +119,17 @@ class TransferenciaAlmacenController extends Controller
 
             $numero_transferencia = 'TR-' . str_pad($num, 6, '0', STR_PAD_LEFT);
 
+            $horaTransferencia = now()->format('H:i:s');
+            if ($request->filled('hora_transferencia')) {
+                $horaTransferencia = strlen($request->hora_transferencia) === 5 ? $request->hora_transferencia . ':00' : $request->hora_transferencia;
+            }
+            $fechaHoraTransferencia = \Carbon\Carbon::parse($request->fecha_transferencia . ' ' . $horaTransferencia)->format('Y-m-d H:i:s');
+
             $transferencia = TransferenciaAlmacen::create([
                 'numero_transferencia'   => $numero_transferencia,
                 'codigo_almacen_origen'  => $request->codigo_almacen_origen,
                 'codigo_almacen_destino' => $request->codigo_almacen_destino,
-                'fecha_transferencia'    => $request->fecha_transferencia,
+                'fecha_transferencia'    => $fechaHoraTransferencia,
                 'observaciones'          => $request->observaciones,
                 'estado'                 => 'COMPLETADO',
                 'usuario_registro'       => Auth::id(),
@@ -136,14 +142,14 @@ class TransferenciaAlmacenController extends Controller
             foreach ($request->items as $item) {
                 $invOrigen = DB::table('inventario')->where('id_inventario', $item['id_inventario'])->lockForUpdate()->first();
                 
-                if (!$invOrigen || $invOrigen->stock_actual < $item['cantidad']) {
+                if (!$invOrigen || round(floatval($invOrigen->stock_actual), 4) < round(floatval($item['cantidad']), 4)) {
                     throw new \Exception("Stock insuficiente en origen para el lote {$item['lote']} del producto {$item['codigo_producto']}. Disponible: " . ($invOrigen->stock_actual ?? 0));
                 }
 
                 // 1. Descontar del origen
                 DB::table('inventario')->where('id_inventario', $invOrigen->id_inventario)->update([
-                    'stock_actual' => DB::raw("stock_actual - {$item['cantidad']}"),
-                    'fecha_ultimo_movimiento' => $request->fecha_transferencia,
+                    'stock_actual' => DB::raw("GREATEST(0, stock_actual - {$item['cantidad']})"),
+                    'fecha_ultimo_movimiento' => $fechaHoraTransferencia,
                     'usuario_ultimo_movimiento' => $usuario_id
                 ]);
 
@@ -161,7 +167,7 @@ class TransferenciaAlmacenController extends Controller
                     'numero_referencia'    => $numero_transferencia,
                     'observaciones'        => "Transferencia a $destino",
                     'usuario_movimiento'   => $usuario_id,
-                    'fecha_movimiento'     => $request->fecha_transferencia,
+                    'fecha_movimiento'     => $fechaHoraTransferencia,
                     'estado'               => 1,
                     'tiene_kardex'         => true,
                 ]);
@@ -173,7 +179,7 @@ class TransferenciaAlmacenController extends Controller
                 DB::table('kardex')->insert([
                     'codigo_almacen'               => $origen,
                     'codigo_producto'              => $item['codigo_producto'],
-                    'fecha_movimiento'             => $request->fecha_transferencia,
+                    'fecha_movimiento'             => $fechaHoraTransferencia,
                     'tipo_movimiento'              => 'SALIDA',
                     'documento'                    => 'TRANSFERENCIA',
                     'numero_documento'             => $numero_transferencia,
@@ -204,7 +210,7 @@ class TransferenciaAlmacenController extends Controller
                     DB::table('inventario')->where('id_inventario', $invDestino->id_inventario)->update([
                         'stock_actual' => DB::raw("stock_actual + {$item['cantidad']}"),
                         'estado' => 1,
-                        'fecha_ultimo_movimiento' => $request->fecha_transferencia,
+                        'fecha_ultimo_movimiento' => $fechaHoraTransferencia,
                         'usuario_ultimo_movimiento' => $usuario_id
                     ]);
                 } else {
@@ -217,7 +223,7 @@ class TransferenciaAlmacenController extends Controller
                         'lote'                      => $item['lote'],
                         'fecha_vencimiento'         => $invOrigen->fecha_vencimiento,
                         'estado'                    => 1,
-                        'fecha_ultimo_movimiento'   => $request->fecha_transferencia,
+                        'fecha_ultimo_movimiento'   => $fechaHoraTransferencia,
                         'usuario_ultimo_movimiento' => $usuario_id,
                     ]);
                 }
@@ -235,7 +241,7 @@ class TransferenciaAlmacenController extends Controller
                     'numero_referencia'    => $numero_transferencia,
                     'observaciones'        => "Recepción desde $origen",
                     'usuario_movimiento'   => $usuario_id,
-                    'fecha_movimiento'     => $request->fecha_transferencia,
+                    'fecha_movimiento'     => $fechaHoraTransferencia,
                     'estado'               => 1,
                     'tiene_kardex'         => true,
                 ]);
@@ -247,7 +253,7 @@ class TransferenciaAlmacenController extends Controller
                 DB::table('kardex')->insert([
                     'codigo_almacen'               => $destino,
                     'codigo_producto'              => $item['codigo_producto'],
-                    'fecha_movimiento'             => $request->fecha_transferencia,
+                    'fecha_movimiento'             => $fechaHoraTransferencia,
                     'tipo_movimiento'              => 'INGRESO',
                     'documento'                    => 'TRANSFERENCIA',
                     'numero_documento'             => $numero_transferencia,
@@ -319,13 +325,13 @@ class TransferenciaAlmacenController extends Controller
                     ->lockForUpdate()
                     ->first();
 
-                if (!$invDestino || $invDestino->stock_actual < $det->cantidad) {
+                if (!$invDestino || round(floatval($invDestino->stock_actual), 4) < round(floatval($det->cantidad), 4)) {
                     throw new \Exception("Stock insuficiente en el almacén de destino para revertir el lote {$det->lote} del producto {$det->codigo_producto}.");
                 }
 
                 // 1. Quitar del destino
                 DB::table('inventario')->where('id_inventario', $invDestino->id_inventario)->update([
-                    'stock_actual' => DB::raw("stock_actual - {$det->cantidad}"),
+                    'stock_actual' => DB::raw("GREATEST(0, stock_actual - {$det->cantidad})"),
                     'fecha_ultimo_movimiento' => now(),
                     'usuario_ultimo_movimiento' => $usuario_id
                 ]);

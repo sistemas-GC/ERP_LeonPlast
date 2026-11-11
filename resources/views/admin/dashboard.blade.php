@@ -29,6 +29,7 @@
                     <option value="hoy" {{ $rango == 'hoy' ? 'selected' : '' }}>Hoy</option>
                     <option value="semana" {{ $rango == 'semana' ? 'selected' : '' }}>Esta Semana</option>
                     <option value="mes" {{ $rango == 'mes' ? 'selected' : '' }}>Este Mes</option>
+                    <option value="mes_anterior" {{ $rango == 'mes_anterior' ? 'selected' : '' }}>Mes Anterior</option>
                 </select>
             </form>
         </div>

@@ -16,7 +16,7 @@
         </a>
         
         <a href="{{ route('inventario.kardex') }}" class="whitespace-nowrap py-4 px-6 font-bold text-sm border-b-2 {{ request()->routeIs('inventario.kardex') ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors' }}">
-            <i class="fas fa-history mr-2"></i> Kardex
+            <i class="fas fa-history mr-2"></i> Kardex Valorizado
         </a>
         
         <a href="{{ route('inventario.ajuste') }}" class="whitespace-nowrap py-4 px-6 font-bold text-sm border-b-2 {{ request()->routeIs('inventario.ajuste') && !request()->routeIs('inventario.ajuste.lista') ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-colors' }}">

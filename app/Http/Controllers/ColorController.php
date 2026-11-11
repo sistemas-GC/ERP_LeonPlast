@@ -19,11 +19,7 @@ class ColorController extends Controller
             });
         }
 
-        $colores = $query->orderBy('descripcion', 'asc')->paginate(10);
-
-        if ($request->ajax()) {
-            return view('tablas_maestras.colores.table', compact('colores'))->render();
-        }
+        $colores = $query->orderBy('descripcion', 'asc')->paginate(10)->appends($request->all());
 
         return view('tablas_maestras.colores.index', compact('colores', 'search'));
     }

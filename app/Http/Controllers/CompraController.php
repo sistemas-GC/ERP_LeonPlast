@@ -249,6 +249,9 @@ class CompraController extends Controller
                     $precio_unitario = $sub / $cant;
                 }
 
+                $loteFallback = strtoupper(trim($request->serie_documento)) . '-' . trim($request->numero_documento);
+                $loteFinal = !empty(trim($item['lote'] ?? '')) ? trim($item['lote']) : $loteFallback;
+
                 DetalleCompra::create([
                     'id_compra' => $compra->id_compra,
                     'codigo_producto' => $item['codigo'],
@@ -260,8 +263,8 @@ class CompraController extends Controller
                     'igv' => $igv_item,
                     'total' => $total_item,
                     'codigo_almacen' => $item['codigo_almacen'],
-                    'lote' => $item['lote'] ?? null,
-                    'fecha_vencimiento' => $item['fecha_vencimiento'] ?? null
+                    'lote' => $loteFinal,
+                    'fecha_vencimiento' => !empty($item['fecha_vencimiento']) ? $item['fecha_vencimiento'] : $request->fecha_compra
                 ]);
             }
 
@@ -476,6 +479,9 @@ class CompraController extends Controller
                     $precio_unitario = $sub / $cant;
                 }
 
+                $loteFallback = strtoupper(trim($request->serie_documento)) . '-' . trim($request->numero_documento);
+                $loteFinal = !empty(trim($item['lote'] ?? '')) ? trim($item['lote']) : $loteFallback;
+
                 DetalleCompra::create([
                     'id_compra' => $id,
                     'codigo_producto' => $item['codigo'],
@@ -487,8 +493,8 @@ class CompraController extends Controller
                     'igv' => $igv_item,
                     'total' => $total_item,
                     'codigo_almacen' => $item['codigo_almacen'],
-                    'lote' => $item['lote'] ?? null,
-                    'fecha_vencimiento' => $item['fecha_vencimiento'] ?? null
+                    'lote' => $loteFinal,
+                    'fecha_vencimiento' => !empty($item['fecha_vencimiento']) ? $item['fecha_vencimiento'] : $request->fecha_compra
                 ]);
             }
 

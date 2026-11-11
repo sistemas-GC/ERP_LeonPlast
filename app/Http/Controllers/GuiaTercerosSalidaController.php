@@ -86,12 +86,12 @@ class GuiaTercerosSalidaController extends Controller
 
             foreach ($request->productos as $item) {
                 // 1. Verificar Stock
-                $stock = DB::table('inventario')
+                $stock = floatval(DB::table('inventario')
                     ->where('codigo_almacen', $request->codigo_almacen_origen)
                     ->where('codigo_producto', $item['codigo'])
-                    ->sum('stock_actual');
+                    ->sum('stock_actual'));
                     
-                if ($stock < $item['cantidad']) {
+                if (round($stock, 4) < round(floatval($item['cantidad']), 4)) {
                     throw new \Exception("Stock insuficiente para el producto {$item['codigo']} en el almacén seleccionado. Disponible: {$stock}");
                 }
 
@@ -113,22 +113,27 @@ class GuiaTercerosSalidaController extends Controller
                     ->orderBy('id_inventario', 'asc')
                     ->get();
 
-                $cantidadRestante = $item['cantidad'];
+                $cantidadRestante = floatval($item['cantidad']);
                 
                 $totalDescontado = 0;
                 $totalCostoLotes = 0;
                 $primerMovId = null;
 
                 foreach ($lotes as $lote) {
-                    if ($cantidadRestante <= 0) break;
+                    if (round($cantidadRestante, 4) <= 0) break;
 
-                    $cantidadDescontar = min($lote->stock_actual, $cantidadRestante);
+                    $disponibleLote = floatval($lote->stock_actual);
+                    if (abs($disponibleLote - $cantidadRestante) < 0.0001 || $disponibleLote <= $cantidadRestante) {
+                        $cantidadDescontar = $disponibleLote;
+                    } else {
+                        $cantidadDescontar = min($disponibleLote, $cantidadRestante);
+                    }
                     
                     // Actualizar Inventario
                     DB::table('inventario')
                         ->where('id_inventario', $lote->id_inventario)
                         ->update([
-                            'stock_actual' => $lote->stock_actual - $cantidadDescontar,
+                            'stock_actual' => DB::raw("GREATEST(0, stock_actual - {$cantidadDescontar})"),
                             'fecha_ultimo_movimiento' => now()
                         ]);
 
@@ -206,11 +211,16 @@ class GuiaTercerosSalidaController extends Controller
 
         $productos = DB::table('inventario')
             ->join('producto', 'inventario.codigo_producto', '=', 'producto.codigo')
-            ->select('producto.codigo', 'producto.descripcion', DB::raw('SUM(inventario.stock_actual) as stock_total'))
+            ->select(
+                'producto.codigo', 
+                'producto.descripcion', 
+                DB::raw("COALESCE(producto.codigo_unidad_medida, 'KG') as unidad_medida"),
+                DB::raw('SUM(inventario.stock_actual) as stock_total')
+            )
             ->where('inventario.codigo_almacen', $almacen)
             ->where('producto.codigo_tipo_producto', 'PEP')
             ->where('producto.estado', 1)
-            ->groupBy('producto.codigo', 'producto.descripcion')
+            ->groupBy('producto.codigo', 'producto.descripcion', 'producto.codigo_unidad_medida')
             ->having('stock_total', '>', 0)
             ->get();
 

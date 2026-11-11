@@ -36,9 +36,12 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 <div>
                     <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
-                        📅 Fecha de Transferencia <span class="text-red-500">*</span>
+                        📅 Fecha y Hora <span class="text-red-500">*</span>
                     </label>
-                    <input type="date" name="fecha_transferencia" value="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}" class="w-full rounded-lg border border-slate-300 px-3.5 py-2 text-sm text-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" required>
+                    <div class="grid grid-cols-5 gap-2">
+                        <input type="date" name="fecha_transferencia" value="{{ date('Y-m-d') }}" max="{{ date('Y-m-d') }}" class="col-span-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" required>
+                        <input type="time" name="hora_transferencia" value="{{ date('H:i') }}" class="col-span-2 w-full rounded-lg border border-slate-300 px-2 py-2 text-sm text-slate-800 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition bg-white shadow-xs" required>
+                    </div>
                 </div>
                 
                 <div>
@@ -278,16 +281,24 @@
             },
 
             submitForm() {
+                const notify = (title, text, icon) => {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire(title, text, icon);
+                    } else {
+                        alert(`${title}: ${text}`);
+                    }
+                };
+
                 if (!this.origen || !this.destino) {
-                    Swal.fire('Atención', 'Debe seleccionar tanto el almacén de origen como el almacén de destino.', 'warning');
+                    notify('Atención', 'Debe seleccionar tanto el almacén de origen como el almacén de destino.', 'warning');
                     return;
                 }
                 if (this.origen === this.destino) {
-                    Swal.fire('Atención', 'El almacén de destino no puede ser igual al de origen.', 'warning');
+                    notify('Atención', 'El almacén de destino no puede ser igual al de origen.', 'warning');
                     return;
                 }
                 if (this.items.length === 0) {
-                    Swal.fire('Atención', 'Debe agregar al menos un producto a transferir.', 'warning');
+                    notify('Atención', 'Debe agregar al menos un producto a transferir.', 'warning');
                     return;
                 }
                 
@@ -306,25 +317,32 @@
                 });
 
                 if (hasErrors) {
-                    Swal.fire('Error en cantidades', mensajeError, 'error');
+                    notify('Error en cantidades', mensajeError, 'error');
                     return;
                 }
 
-                Swal.fire({
-                    title: '¿Confirmar Transferencia de Producción?',
-                    text: `Se trasladarán ${this.items.length} producto(s) desde ${this.origen} hacia ${this.destino} aplicando deducción FIFO de lotes.`,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#10b981',
-                    cancelButtonColor: '#64748b',
-                    confirmButtonText: 'Sí, procesar traslado',
-                    cancelButtonText: 'Revisar'
-                }).then((result) => {
-                    if (result.isConfirmed) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: '¿Confirmar Transferencia de Producción?',
+                        text: `Se trasladarán ${this.items.length} producto(s) desde ${this.origen} hacia ${this.destino} aplicando deducción FIFO de lotes.`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#10b981',
+                        cancelButtonColor: '#64748b',
+                        confirmButtonText: 'Sí, procesar traslado',
+                        cancelButtonText: 'Revisar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            this.isSubmitting = true;
+                            document.getElementById('formProduccionTransferencia').submit();
+                        }
+                    });
+                } else {
+                    if (confirm(`¿Confirmar Transferencia de Producción?\nSe trasladarán ${this.items.length} producto(s) desde ${this.origen} hacia ${this.destino}.`)) {
                         this.isSubmitting = true;
                         document.getElementById('formProduccionTransferencia').submit();
                     }
-                });
+                }
             }
         }
     }

@@ -51,6 +51,14 @@ class Producto extends Model
     }
 
     /**
+     * Alias para relación con Unidad de Medida (compatibilidad).
+     */
+    public function unidadMedida()
+    {
+        return $this->unidad();
+    }
+
+    /**
      * Relación con la tabla Color.
      */
     public function color()

@@ -6,7 +6,7 @@ use App\Models\{Inventario, MovimientoInventario, Kardex, Compra, Almacen, Produ
 use App\Services\KardexService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Auth};
-use App\Exports\KardexExport;
+use App\Exports\{KardexExport, KardexFisicoExport};
 use Maatwebsite\Excel\Facades\Excel;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -111,10 +111,15 @@ class InventarioController extends Controller
         try {
             DB::beginTransaction();
 
+            $almacenDestinoGlobal = $request->input('codigo_almacen_destino');
+
             foreach ($request->items as $id_detalle => $data) {
                 $cantidad_recibida = floatval($data['cantidad']);
                 $codigo_producto = $data['codigo_producto'];
-                $codigo_almacen = $data['codigo_almacen'];
+                $codigo_almacen = !empty($data['codigo_almacen']) ? $data['codigo_almacen'] : $almacenDestinoGlobal;
+                if (empty($codigo_almacen)) {
+                    throw new \Exception("Debe seleccionar un almacén de destino para realizar la recepción.");
+                }
                 $precio_original = floatval($data['precio'] ?? 0);
                 $lote = $data['lote'] ?? null;
                 $fecha_vencimiento = $data['fecha_vencimiento'] ?? null;
@@ -200,11 +205,15 @@ class InventarioController extends Controller
                 }
             }
 
-            // Actualizar lote/fecha_vencimiento en detalle_compra
+            // Actualizar lote, fecha_vencimiento y almacén destino en detalle_compra
             foreach ($request->items as $id_detalle => $data) {
                 $updates = [];
                 if (!empty($data['lote'])) $updates['lote'] = $data['lote'];
                 if (!empty($data['fecha_vencimiento'])) $updates['fecha_vencimiento'] = $data['fecha_vencimiento'];
+                $itemAlmDestino = !empty($data['codigo_almacen']) ? $data['codigo_almacen'] : $almacenDestinoGlobal;
+                if (!empty($itemAlmDestino)) {
+                    $updates['codigo_almacen'] = $itemAlmDestino;
+                }
                 if (!empty($updates)) {
                     DB::table('detalle_compra')->where('id_detalle_compra', $id_detalle)->update($updates);
                 }
@@ -600,13 +609,19 @@ class InventarioController extends Controller
                 ]);
 
                 // ===== 2. INGRESO ALMACEN DESTINO =====
-                $inventarioDestino = DB::table('inventario')
+                $inventarioDestinoQuery = DB::table('inventario')
                     ->where('codigo_producto', $codigo_producto)
-                    ->where('codigo_almacen', $almacen_destino)
-                    ->lockForUpdate()
-                    ->first();
+                    ->where('codigo_almacen', $almacen_destino);
 
-                $saldo_anterior_destino = $inventarioDestino ? $inventarioDestino->stock_actual : 0;
+                if (!empty($detalle->lote)) {
+                    $inventarioDestinoQuery->where('lote', $detalle->lote);
+                } else {
+                    $inventarioDestinoQuery->whereNull('lote');
+                }
+
+                $inventarioDestino = $inventarioDestinoQuery->lockForUpdate()->first();
+
+                $saldo_anterior_destino = $inventarioDestino ? floatval($inventarioDestino->stock_actual) : 0;
                 $nuevo_saldo_destino = $saldo_anterior_destino + $cantidad_transferir;
 
                 $costosIngreso = $kardexService->calcularCostos(
@@ -669,6 +684,8 @@ class InventarioController extends Controller
         $query = DB::table('kardex')
             ->join('producto', 'kardex.codigo_producto', '=', 'producto.codigo')
             ->join('almacen', 'kardex.codigo_almacen', '=', 'almacen.codigo_almacen')
+            ->leftJoin('unidad_medida', 'producto.codigo_unidad_medida', '=', 'unidad_medida.codigo')
+            ->leftJoin('usuarios', 'kardex.usuario_registro', '=', 'usuarios.id_usuario')
             ->where('kardex.codigo_almacen', '!=', 'ALM04')
             ->where(function($q) {
                 $q->whereNull('kardex.observaciones')
@@ -677,8 +694,7 @@ class InventarioController extends Controller
                            ->where('kardex.observaciones', 'NOT LIKE', '%[EXTORNADO]%');
                   });
             })
-            ->where('kardex.tipo_movimiento', '!=', 'EXTORNO')
-            ->select('kardex.*', 'producto.descripcion as producto', 'almacen.descripcion as almacen');
+            ->where('kardex.tipo_movimiento', '!=', 'EXTORNO');
 
         if ($request->filled('documento')) {
             $query->where('kardex.documento', $request->documento);
@@ -706,12 +722,12 @@ class InventarioController extends Controller
         // Obtener query sin paginación para totales
         $queryClone = clone $query;
         $resumen = (object) [
-            'total_entradas'     => $queryClone->sum('kardex.cantidad_entrada'),
-            'total_entradas_val' => $queryClone->sum('kardex.total_entrada'),
+            'total_entradas'     => (float) $queryClone->sum('kardex.cantidad_entrada'),
+            'total_entradas_val' => (float) $queryClone->sum('kardex.total_entrada'),
         ];
         $queryClone2 = clone $query;
-        $resumen->total_salidas     = $queryClone2->sum('kardex.cantidad_salida');
-        $resumen->total_salidas_val = $queryClone2->sum('kardex.total_salida');
+        $resumen->total_salidas     = (float) $queryClone2->sum('kardex.cantidad_salida');
+        $resumen->total_salidas_val = (float) $queryClone2->sum('kardex.total_salida');
 
         // Ultimo saldo valorizado de cada producto en el filtro
         $subQuery = clone $query;
@@ -724,21 +740,109 @@ class InventarioController extends Controller
                 ->whereIn('id_kardex', $lastIds)
                 ->select(DB::raw('SUM(cantidad_saldo) as total_cantidad'), DB::raw('SUM(total_saldo) as total_valorizado'))
                 ->first();
-            $resumen->saldo_final_cantidad = $ultimosSaldos?->total_cantidad ?? 0;
-            $resumen->saldo_final_valor = $ultimosSaldos?->total_valorizado ?? 0;
+            $resumen->saldo_final_cantidad = (float) ($ultimosSaldos?->total_cantidad ?? 0);
+            $resumen->saldo_final_valor    = (float) ($ultimosSaldos?->total_valorizado ?? 0);
         } else {
             $resumen->saldo_final_cantidad = 0;
-            $resumen->saldo_final_valor = 0;
+            $resumen->saldo_final_valor    = 0;
         }
 
-        $movimientos = $query->orderBy('kardex.fecha_movimiento', 'asc')
-            ->orderBy('kardex.id_kardex', 'asc')
-            ->paginate(15)->appends(request()->all());
+        $resumen->total_registros = (clone $query)->count();
+
+        // Obtener combinaciones de (Almacén, Producto) que tienen movimientos según los filtros aplicados
+        $gruposQuery = (clone $query)
+            ->select(
+                'kardex.codigo_almacen',
+                'almacen.descripcion as almacen_descripcion',
+                'kardex.codigo_producto',
+                'producto.descripcion as producto_descripcion',
+                'producto.codigo_tipo_producto',
+                'producto.codigo_unidad_medida',
+                'unidad_medida.descripcion as unidad_medida_desc'
+            )
+            ->distinct()
+            ->orderBy('almacen.descripcion', 'asc')
+            ->orderBy('producto.descripcion', 'asc');
+
+        $gruposPaginados = $gruposQuery->paginate(15)->appends($request->all());
+
+        $movimientosPorGrupo = collect();
+        $stockActualPorGrupo = collect();
+
+        if ($gruposPaginados->isNotEmpty()) {
+            $movimientos = (clone $query)
+                ->where(function($q) use ($gruposPaginados) {
+                    foreach ($gruposPaginados as $g) {
+                        $q->orWhere(function($sub) use ($g) {
+                            $sub->where('kardex.codigo_almacen', $g->codigo_almacen)
+                                ->where('kardex.codigo_producto', $g->codigo_producto);
+                        });
+                    }
+                })
+                ->select(
+                    'kardex.*',
+                    'producto.descripcion as producto',
+                    'producto.codigo_tipo_producto',
+                    'producto.codigo_unidad_medida',
+                    'almacen.descripcion as almacen',
+                    'unidad_medida.descripcion as unidad_medida',
+                    'usuarios.nombre_usuario as nombre_usuario'
+                )
+                ->orderBy('kardex.fecha_movimiento', 'asc')
+                ->orderBy('kardex.id_kardex', 'asc')
+                ->get();
+
+            $movimientosPorGrupo = $movimientos->groupBy(function($item) {
+                return $item->codigo_almacen . '__' . $item->codigo_producto;
+            });
+
+            $invQuery = DB::table('inventario')
+                ->where(function($q) use ($gruposPaginados) {
+                    foreach ($gruposPaginados as $g) {
+                        $q->orWhere(function($sub) use ($g) {
+                            $sub->where('codigo_almacen', $g->codigo_almacen)
+                                ->where('codigo_producto', $g->codigo_producto);
+                        });
+                    }
+                })
+                ->select(
+                    'codigo_almacen', 
+                    'codigo_producto', 
+                    DB::raw('SUM(stock_actual) as total_stock'), 
+                    DB::raw('AVG(costo_promedio) as promedio_costo')
+                )
+                ->groupBy('codigo_almacen', 'codigo_producto')
+                ->get();
+
+            foreach ($invQuery as $inv) {
+                $stockActual = (float) $inv->total_stock;
+                $costoPromedio = (float) ($inv->promedio_costo ?? 0);
+                $stockActualPorGrupo->put($inv->codigo_almacen . '__' . $inv->codigo_producto, [
+                    'stock_actual'     => $stockActual,
+                    'costo_promedio'   => $costoPromedio,
+                    'total_valorizado' => $stockActual * $costoPromedio
+                ]);
+            }
+        } else {
+            $movimientos = collect();
+        }
+
+        // Agrupar los grupos paginados por Almacén para el renderizado continuo
+        $almacenesConProductos = $gruposPaginados->getCollection()->groupBy('codigo_almacen');
 
         $tiposDocumento = DB::table('kardex')->select('documento')->distinct()->orderBy('documento')->pluck('documento');
-        $almacenes = \App\Models\Almacen::where('activo', 1)->get();
+        $almacenes = \App\Models\Almacen::where('activo', 1)->orderBy('descripcion')->get();
 
-        return view('inventario.kardex', compact('movimientos', 'tiposDocumento', 'almacenes', 'resumen'));
+        return view('inventario.kardex', compact(
+            'gruposPaginados',
+            'almacenesConProductos',
+            'movimientosPorGrupo',
+            'stockActualPorGrupo',
+            'movimientos',
+            'tiposDocumento',
+            'almacenes',
+            'resumen'
+        ));
     }
 
     public function exportarKardexExcel(Request $request)
@@ -767,6 +871,235 @@ class InventarioController extends Controller
                   ->setPaper('a4', 'landscape');
 
         return $pdf->download('kardex_valorizado_'.date('Ymd_Hi').'.pdf');
+    }
+
+    // 3.1 KARDEX FÍSICO (Unidades físicas por almacén y producto)
+    public function kardexFisico(Request $request)
+    {
+        $query = DB::table('kardex')
+            ->join('producto', 'kardex.codigo_producto', '=', 'producto.codigo')
+            ->join('almacen', 'kardex.codigo_almacen', '=', 'almacen.codigo_almacen')
+            ->leftJoin('unidad_medida', 'kardex.codigo_unidad_medida', '=', 'unidad_medida.codigo')
+            ->leftJoin('usuarios', 'kardex.usuario_registro', '=', 'usuarios.id_usuario')
+            ->where('kardex.codigo_almacen', '!=', 'ALM04')
+            ->where(function($q) {
+                $q->whereNull('kardex.observaciones')
+                  ->orWhere(function($subq) {
+                      $subq->where('kardex.observaciones', 'NOT LIKE', '%[ANULADO]%')
+                           ->where('kardex.observaciones', 'NOT LIKE', '%[EXTORNADO]%');
+                  });
+            })
+            ->where('kardex.tipo_movimiento', '!=', 'EXTORNO')
+            ->select(
+                'kardex.id_kardex',
+                'kardex.codigo_almacen',
+                'kardex.codigo_producto',
+                'kardex.codigo_unidad_medida',
+                'kardex.fecha_movimiento',
+                'kardex.tipo_movimiento',
+                'kardex.documento',
+                'kardex.numero_documento',
+                'kardex.cantidad_entrada',
+                'kardex.cantidad_salida',
+                'kardex.cantidad_saldo',
+                'kardex.lote',
+                'kardex.observaciones',
+                'producto.descripcion as producto',
+                'producto.codigo_tipo_producto',
+                'almacen.descripcion as almacen',
+                'unidad_medida.descripcion as unidad_medida',
+                'usuarios.nombre_usuario as nombre_usuario'
+            );
+
+        if ($request->filled('codigo_almacen')) {
+            $query->where('kardex.codigo_almacen', $request->codigo_almacen);
+        }
+
+        if ($request->filled('codigo_producto')) {
+            $prod = trim($request->codigo_producto);
+            $query->where(function ($q) use ($prod) {
+                $q->where('kardex.codigo_producto', $prod)
+                  ->orWhere('kardex.codigo_producto', 'LIKE', "%{$prod}%")
+                  ->orWhere('producto.descripcion', 'LIKE', "%{$prod}%");
+            });
+        }
+
+        if ($request->filled('tipo_movimiento')) {
+            $query->where('kardex.tipo_movimiento', $request->tipo_movimiento);
+        }
+
+        if ($request->filled('documento')) {
+            $query->where('kardex.documento', $request->documento);
+        }
+
+        if ($request->filled('fecha_desde')) {
+            $query->where('kardex.fecha_movimiento', '>=', $request->fecha_desde . ' 00:00:00');
+        }
+
+        if ($request->filled('fecha_hasta')) {
+            $query->where('kardex.fecha_movimiento', '<=', $request->fecha_hasta . ' 23:59:59');
+        }
+
+        // Totales de entradas y salidas
+        $queryClone = clone $query;
+        $totalEntradas = (float) $queryClone->sum('kardex.cantidad_entrada');
+        $queryClone2 = clone $query;
+        $totalSalidas = (float) $queryClone2->sum('kardex.cantidad_salida');
+
+        // Información detallada del producto si se seleccionó uno específico
+        $productoSeleccionado = null;
+        $stockActualEnAlmacen = null;
+        if ($request->filled('codigo_producto')) {
+            $prodMatch = DB::table('producto')
+                ->leftJoin('unidad_medida', 'producto.codigo_unidad_medida', '=', 'unidad_medida.codigo')
+                ->where('producto.codigo', trim($request->codigo_producto))
+                ->orWhere('producto.descripcion', trim($request->codigo_producto))
+                ->select('producto.*', 'unidad_medida.descripcion as unidad_medida_desc')
+                ->first();
+
+            if ($prodMatch) {
+                $productoSeleccionado = $prodMatch;
+                $invQuery = DB::table('inventario')->where('codigo_producto', $prodMatch->codigo);
+                if ($request->filled('codigo_almacen')) {
+                    $invQuery->where('codigo_almacen', $request->codigo_almacen);
+                }
+                $stockActualEnAlmacen = (float) $invQuery->sum('stock_actual');
+            }
+        }
+
+        // Saldo final físico
+        $saldoFinalFisico = 0;
+        if ($productoSeleccionado) {
+            $saldoFinalFisico = $stockActualEnAlmacen ?? ($totalEntradas - $totalSalidas);
+        } else {
+            $subQuery = clone $query;
+            $lastIds = $subQuery->select(DB::raw('MAX(kardex.id_kardex) as last_id'))
+                     ->groupBy('kardex.codigo_producto', 'kardex.codigo_almacen')
+                     ->pluck('last_id')->toArray();
+            if (!empty($lastIds)) {
+                $saldoFinalFisico = (float) DB::table('kardex')->whereIn('id_kardex', $lastIds)->sum('cantidad_saldo');
+            } else {
+                $saldoFinalFisico = $totalEntradas - $totalSalidas;
+            }
+        }
+
+        $resumen = (object) [
+            'total_entradas' => $totalEntradas,
+            'total_salidas'  => $totalSalidas,
+            'saldo_final'    => $saldoFinalFisico,
+            'total_registros'=> (clone $query)->count()
+        ];
+
+        // Obtener combinaciones de (Almacén, Producto) que tienen movimientos según los filtros aplicados
+        $gruposQuery = (clone $query)
+            ->select(
+                'kardex.codigo_almacen',
+                'almacen.descripcion as almacen_descripcion',
+                'kardex.codigo_producto',
+                'producto.descripcion as producto_descripcion',
+                'producto.codigo_tipo_producto',
+                'producto.codigo_unidad_medida',
+                'unidad_medida.descripcion as unidad_medida_desc'
+            )
+            ->distinct()
+            ->orderBy('almacen.descripcion', 'asc')
+            ->orderBy('producto.descripcion', 'asc');
+
+        $gruposPaginados = $gruposQuery->paginate(15)->appends($request->all());
+
+        $movimientosPorGrupo = collect();
+        $stockActualPorGrupo = collect();
+
+        if ($gruposPaginados->isNotEmpty()) {
+            $movimientos = (clone $query)
+                ->where(function($q) use ($gruposPaginados) {
+                    foreach ($gruposPaginados as $g) {
+                        $q->orWhere(function($sub) use ($g) {
+                            $sub->where('kardex.codigo_almacen', $g->codigo_almacen)
+                                ->where('kardex.codigo_producto', $g->codigo_producto);
+                        });
+                    }
+                })
+                ->select(
+                    'kardex.id_kardex',
+                    'kardex.codigo_almacen',
+                    'kardex.codigo_producto',
+                    'kardex.codigo_unidad_medida',
+                    'kardex.fecha_movimiento',
+                    'kardex.tipo_movimiento',
+                    'kardex.documento',
+                    'kardex.numero_documento',
+                    'kardex.cantidad_entrada',
+                    'kardex.cantidad_salida',
+                    'kardex.cantidad_saldo',
+                    'kardex.lote',
+                    'kardex.observaciones',
+                    'producto.descripcion as producto',
+                    'producto.codigo_tipo_producto',
+                    'almacen.descripcion as almacen',
+                    'unidad_medida.descripcion as unidad_medida',
+                    'usuarios.nombre_usuario as nombre_usuario'
+                )
+                ->orderBy('kardex.fecha_movimiento', 'asc')
+                ->orderBy('kardex.id_kardex', 'asc')
+                ->get();
+
+            $movimientosPorGrupo = $movimientos->groupBy(function($item) {
+                return $item->codigo_almacen . '__' . $item->codigo_producto;
+            });
+
+            $invQuery = DB::table('inventario')
+                ->where(function($q) use ($gruposPaginados) {
+                    foreach ($gruposPaginados as $g) {
+                        $q->orWhere(function($sub) use ($g) {
+                            $sub->where('codigo_almacen', $g->codigo_almacen)
+                                ->where('codigo_producto', $g->codigo_producto);
+                        });
+                    }
+                })
+                ->select('codigo_almacen', 'codigo_producto', DB::raw('SUM(stock_actual) as total_stock'))
+                ->groupBy('codigo_almacen', 'codigo_producto')
+                ->get();
+
+            foreach ($invQuery as $inv) {
+                $stockActualPorGrupo->put($inv->codigo_almacen . '__' . $inv->codigo_producto, (float) $inv->total_stock);
+            }
+        } else {
+            $movimientos = collect();
+        }
+
+        // Agrupar los grupos paginados por Almacén para el renderizado continuo
+        $almacenesConProductos = $gruposPaginados->getCollection()->groupBy('codigo_almacen');
+
+        $almacenes = \App\Models\Almacen::where('activo', 1)->orderBy('descripcion')->get();
+        $tiposDocumento = DB::table('kardex')->select('documento')->distinct()->whereNotNull('documento')->orderBy('documento')->pluck('documento');
+        
+        $productosList = DB::table('producto')
+            ->where('estado', 1)
+            ->where('codigo_tipo_producto', '!=', 'ACT')
+            ->where('codigo', 'NOT LIKE', 'ACT%')
+            ->select('codigo', 'descripcion', 'codigo_unidad_medida', 'codigo_tipo_producto')
+            ->orderBy('descripcion')
+            ->get();
+
+        return view('inventario.kardex_fisico', compact(
+            'gruposPaginados',
+            'almacenesConProductos',
+            'movimientosPorGrupo',
+            'stockActualPorGrupo',
+            'movimientos', 
+            'almacenes', 
+            'tiposDocumento', 
+            'productosList', 
+            'resumen', 
+            'productoSeleccionado',
+            'stockActualEnAlmacen'
+        ));
+    }
+
+    public function exportarKardexFisicoExcel(Request $request)
+    {
+        return Excel::download(new KardexFisicoExport($request->all()), 'kardex_fisico_'.date('Ymd_Hi').'.xlsx');
     }
 
     // 2.2 ALERTAS DE STOCK (productos por debajo del mínimo)
