@@ -10,7 +10,7 @@
         subtitle="Control cronológico de existencias en unidades físicas por almacén y producto."
     >
         <x-slot:actions>
-            <a href="{{ route('inventario.kardex_fisico.exportar.excel', request()->query()) }}" class="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-lg shadow-sm transition">
+            <a href="{{ route('inventario.kardex_fisico.exportar.excel', request()->query()) }}" data-no-loader="true" class="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-lg shadow-sm transition">
                 <i class="fas fa-file-excel"></i>
                 <span>Exportar Excel</span>
             </a>

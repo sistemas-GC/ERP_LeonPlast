@@ -9,10 +9,10 @@
         subtitle="Historial cronológico valorizado de entradas, salidas y saldos."
     >
         <x-slot name="actions">
-            <a href="{{ route('inventario.kardex.exportar.excel', request()->query()) }}" id="btn-export-excel" class="btn-primary bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2 no-print">
+            <a href="{{ route('inventario.kardex.exportar.excel', request()->query()) }}" id="btn-export-excel" data-no-loader="true" class="btn-primary bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2 no-print">
                 <i class="fas fa-file-excel"></i> Exportar Excel
             </a>
-            <a href="{{ route('inventario.kardex.exportar.pdf', request()->query()) }}" id="btn-export-pdf" class="btn-primary bg-red-600 hover:bg-red-700 flex items-center gap-2 no-print">
+            <a href="{{ route('inventario.kardex.exportar.pdf', request()->query()) }}" id="btn-export-pdf" data-no-loader="true" class="btn-primary bg-red-600 hover:bg-red-700 flex items-center gap-2 no-print">
                 <i class="fas fa-file-pdf"></i> Exportar PDF
             </a>
         </x-slot>

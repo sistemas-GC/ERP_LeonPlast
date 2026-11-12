@@ -1292,8 +1292,13 @@
             if (!link) return;
             
             const href = link.getAttribute('href');
-            // Check if it's a valid internal link for navigation
-            if (!e.defaultPrevented && href && !href.startsWith('#') && !href.startsWith('javascript:') && link.getAttribute('target') !== '_blank') {
+            const isDownloadOrExport = link.hasAttribute('download') || 
+                                       link.hasAttribute('data-no-loader') || 
+                                       link.classList.contains('no-loader') ||
+                                       (href && (href.includes('/exportar') || href.includes('/excel') || href.includes('/pdf') || href.includes('/download')));
+
+            // Check if it's a valid internal link for navigation (not a download/export)
+            if (!e.defaultPrevented && href && !href.startsWith('#') && !href.startsWith('javascript:') && link.getAttribute('target') !== '_blank' && !isDownloadOrExport) {
                 const loader = document.getElementById('global-loader');
                 if (loader) {
                     loader.classList.remove('hidden');

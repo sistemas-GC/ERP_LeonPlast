@@ -6,6 +6,7 @@ use App\Models\{Inventario, MovimientoInventario, Kardex, Compra, Almacen, Produ
 use App\Services\KardexService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Auth};
+use Illuminate\Pagination\{LengthAwarePaginator, Paginator};
 use App\Exports\{KardexExport, KardexFisicoExport};
 use Maatwebsite\Excel\Facades\Excel;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -764,7 +765,26 @@ class InventarioController extends Controller
             ->orderBy('almacen.descripcion', 'asc')
             ->orderBy('producto.descripcion', 'asc');
 
-        $gruposPaginados = $gruposQuery->paginate(15)->appends($request->all());
+        $perPage = 15;
+        $currentPage = Paginator::resolveCurrentPage() ?: 1;
+        $totalGrupos = (clone $query)
+            ->select(DB::raw('COUNT(DISTINCT kardex.codigo_almacen, kardex.codigo_producto) as total'))
+            ->value('total') ?? 0;
+
+        $items = (clone $gruposQuery)
+            ->forPage($currentPage, $perPage)
+            ->get();
+
+        $gruposPaginados = new LengthAwarePaginator(
+            $items,
+            $totalGrupos,
+            $perPage,
+            $currentPage,
+            [
+                'path' => Paginator::resolveCurrentPath(),
+                'query' => $request->query(),
+            ]
+        );
 
         $movimientosPorGrupo = collect();
         $stockActualPorGrupo = collect();
@@ -1005,7 +1025,26 @@ class InventarioController extends Controller
             ->orderBy('almacen.descripcion', 'asc')
             ->orderBy('producto.descripcion', 'asc');
 
-        $gruposPaginados = $gruposQuery->paginate(15)->appends($request->all());
+        $perPage = 15;
+        $currentPage = Paginator::resolveCurrentPage() ?: 1;
+        $totalGrupos = (clone $query)
+            ->select(DB::raw('COUNT(DISTINCT kardex.codigo_almacen, kardex.codigo_producto) as total'))
+            ->value('total') ?? 0;
+
+        $items = (clone $gruposQuery)
+            ->forPage($currentPage, $perPage)
+            ->get();
+
+        $gruposPaginados = new LengthAwarePaginator(
+            $items,
+            $totalGrupos,
+            $perPage,
+            $currentPage,
+            [
+                'path' => Paginator::resolveCurrentPath(),
+                'query' => $request->query(),
+            ]
+        );
 
         $movimientosPorGrupo = collect();
         $stockActualPorGrupo = collect();
