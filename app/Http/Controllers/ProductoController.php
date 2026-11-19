@@ -49,7 +49,7 @@ class ProductoController extends Controller
         $sort = $request->input('sort', 'descripcion'); // Por defecto ordena por descripción
         $order = $request->input('order', 'asc');
         
-        $validSortColumns = ['codigo', 'descripcion', 'codigo_tipo_producto'];
+        $validSortColumns = ['codigo', 'descripcion', 'codigo_unidad_medida', 'codigo_tipo_producto'];
         if (!in_array($sort, $validSortColumns)) {
             $sort = 'descripcion';
         }
@@ -94,6 +94,7 @@ class ProductoController extends Controller
             'codigo_tipo_producto' => 'required|exists:tipo_producto,codigo',
             'descripcion' => 'nullable|string|max:150',
             'codigo_unidad_medida' => 'nullable|exists:unidad_medida,codigo',
+            'peso_unitario_gr' => 'nullable|numeric|min:0.0001',
             'codigo_color' => 'nullable|exists:color,codigo',
             'es_producto_proceso' => 'nullable|integer',
         ], [
@@ -101,6 +102,8 @@ class ProductoController extends Controller
             'codigo.unique' => 'Este código de producto ya está registrado.',
             'codigo_tipo_producto.required' => 'Debe seleccionar un tipo de producto.',
             'codigo_tipo_producto.exists' => 'El tipo de producto seleccionado no es válido.',
+            'peso_unitario_gr.numeric' => 'El peso unitario debe ser un valor numérico.',
+            'peso_unitario_gr.min' => 'El peso unitario debe ser mayor a 0.',
         ]);
 
         Producto::create([
@@ -108,6 +111,7 @@ class ProductoController extends Controller
             'codigo_tipo_producto' => $request->codigo_tipo_producto,
             'descripcion' => $request->descripcion,
             'codigo_unidad_medida' => $request->codigo_unidad_medida,
+            'peso_unitario_gr' => $request->filled('peso_unitario_gr') ? (float) $request->peso_unitario_gr : null,
             'codigo_color' => $request->codigo_color,
             'es_producto_proceso' => $request->es_producto_proceso ?? 0, 
             'estado' => 1,
@@ -147,16 +151,20 @@ class ProductoController extends Controller
             'codigo_tipo_producto' => 'required|exists:tipo_producto,codigo',
             'descripcion' => 'nullable|string|max:150',
             'codigo_unidad_medida' => 'nullable|exists:unidad_medida,codigo',
+            'peso_unitario_gr' => 'nullable|numeric|min:0.0001',
             'codigo_color' => 'nullable|exists:color,codigo',
             'es_producto_proceso' => 'nullable|integer',
         ], [
             'codigo_tipo_producto.required' => 'El tipo de producto es obligatorio.',
+            'peso_unitario_gr.numeric' => 'El peso unitario debe ser un valor numérico.',
+            'peso_unitario_gr.min' => 'El peso unitario debe ser mayor a 0.',
         ]);
 
         $producto->update([
             'codigo_tipo_producto' => $request->codigo_tipo_producto,
             'descripcion' => $request->descripcion,
             'codigo_unidad_medida' => $request->codigo_unidad_medida,
+            'peso_unitario_gr' => $request->filled('peso_unitario_gr') ? (float) $request->peso_unitario_gr : null,
             'codigo_color' => $request->codigo_color,
             'es_producto_proceso' => $request->es_producto_proceso ?? 0,
         ]);

@@ -24,7 +24,10 @@ class ProduccionIngresoProceso extends Model
         'lote_produccion',
         'fecha_ingreso',
         'usuario_registro',
-        'estado'
+        'estado',
+        'codigo_molde',
+        'descripcion_molde',
+        'peso_unitario_gr'
     ];
 
     public function producto()

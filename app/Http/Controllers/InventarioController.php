@@ -15,6 +15,8 @@ class InventarioController extends Controller
 {
     // 1. EXISTENCIAS (Stock Actual)
     public function index(Request $request) {
+        $modoVista = $request->input('modo_vista', 'original'); // 'original' | 'unidades'
+
         $query = DB::table('inventario')
             ->join('producto', 'inventario.codigo_producto', '=', 'producto.codigo')
             ->join('almacen', 'inventario.codigo_almacen', '=', 'almacen.codigo_almacen')
@@ -22,6 +24,8 @@ class InventarioController extends Controller
                 'inventario.codigo_producto', 
                 'inventario.codigo_almacen',
                 'producto.descripcion as producto',
+                'producto.codigo_unidad_medida',
+                'producto.peso_unitario_gr',
                 'almacen.descripcion as almacen',
                 DB::raw('SUM(inventario.stock_actual) as stock_actual'),
                 DB::raw('MAX(inventario.stock_minimo) as stock_minimo'),
@@ -32,6 +36,8 @@ class InventarioController extends Controller
                 'inventario.codigo_producto',
                 'inventario.codigo_almacen',
                 'producto.descripcion',
+                'producto.codigo_unidad_medida',
+                'producto.peso_unitario_gr',
                 'almacen.descripcion'
             );
 
@@ -49,8 +55,80 @@ class InventarioController extends Controller
         $query->havingRaw('SUM(inventario.stock_actual) > 0');
 
         $stocks = $query->orderBy('producto.descripcion')->paginate(10)->appends(request()->all());
+
+        // Calcular conversión a unidades considerando peso real por lote (si existe) o peso estándar del producto/molde
+        if ($stocks->isNotEmpty()) {
+            $codigosProd = $stocks->pluck('codigo_producto')->unique()->toArray();
+            $lotesInventario = DB::table('inventario')
+                ->whereIn('codigo_producto', $codigosProd)
+                ->where('stock_actual', '>', 0)
+                ->get(['codigo_producto', 'codigo_almacen', 'lote', 'stock_actual']);
+
+            $nombresLotes = $lotesInventario->pluck('lote')->filter()->unique()->toArray();
+            $pesosPorLote = !empty($nombresLotes)
+                ? DB::table('produccion_ingresos_proceso')
+                    ->whereIn('lote_produccion', $nombresLotes)
+                    ->whereNotNull('peso_unitario_gr')
+                    ->where('peso_unitario_gr', '>', 0)
+                    ->pluck('peso_unitario_gr', 'lote_produccion')
+                    ->map(fn($v) => (float) $v)
+                    ->toArray()
+                : [];
+
+            // Fallback de peso desde molde si el producto no tiene peso directo pero su fórmula o lote sí tiene molde
+            $moldesPorLote = !empty($nombresLotes)
+                ? DB::table('produccion_ingresos_proceso')
+                    ->whereIn('lote_produccion', $nombresLotes)
+                    ->whereNotNull('codigo_molde')
+                    ->pluck('codigo_molde', 'lote_produccion')
+                    ->toArray()
+                : [];
+
+            $pesosMoldes = DB::table('molde')
+                ->whereNotNull('peso_unitario_gr')
+                ->where('peso_unitario_gr', '>', 0)
+                ->pluck('peso_unitario_gr', 'codigo')
+                ->map(fn($v) => (float) $v)
+                ->toArray();
+
+            $lotesAgrupados = $lotesInventario->groupBy(fn($i) => $i->codigo_almacen . '__' . $i->codigo_producto);
+
+            foreach ($stocks as $st) {
+                $key = $st->codigo_almacen . '__' . $st->codigo_producto;
+                $lotesItem = $lotesAgrupados->get($key, collect());
+                $pesoProd = (!empty($st->peso_unitario_gr) && $st->peso_unitario_gr > 0) ? (float) $st->peso_unitario_gr : null;
+
+                $totalUnidades = 0;
+                $tieneConversion = false;
+                $pesoReferencia = $pesoProd;
+
+                foreach ($lotesItem as $lt) {
+                    $pesoLt = ($lt->lote && isset($pesosPorLote[$lt->lote])) ? $pesosPorLote[$lt->lote] : null;
+                    if (!$pesoLt && $lt->lote && isset($moldesPorLote[$lt->lote])) {
+                        $codM = $moldesPorLote[$lt->lote];
+                        $pesoLt = $pesosMoldes[$codM] ?? null;
+                    }
+                    $pesoEfectivo = $pesoLt ?? $pesoProd;
+                    if ($pesoEfectivo && $pesoEfectivo > 0) {
+                        $tieneConversion = true;
+                        $pesoReferencia = $pesoEfectivo;
+                        $totalUnidades += ($lt->stock_actual * 1000) / $pesoEfectivo;
+                    }
+                }
+
+                if (!$tieneConversion && $pesoProd && $pesoProd > 0) {
+                    $tieneConversion = true;
+                    $totalUnidades = ($st->stock_actual * 1000) / $pesoProd;
+                }
+
+                $st->tiene_conversion = $tieneConversion;
+                $st->stock_unidades = $tieneConversion ? round($totalUnidades) : null;
+                $st->peso_referencia_gr = $pesoReferencia;
+            }
+        }
+
         $almacenes = Almacen::where('activo', 1)->get();
-        return view('inventario.index', compact('stocks', 'almacenes'));
+        return view('inventario.index', compact('stocks', 'almacenes', 'modoVista'));
     }
 
     // 2. RECEPCIONES (Facturas Pendientes)
@@ -759,6 +837,7 @@ class InventarioController extends Controller
                 'producto.descripcion as producto_descripcion',
                 'producto.codigo_tipo_producto',
                 'producto.codigo_unidad_medida',
+                'producto.peso_unitario_gr',
                 'unidad_medida.descripcion as unidad_medida_desc'
             )
             ->distinct()
@@ -896,6 +975,8 @@ class InventarioController extends Controller
     // 3.1 KARDEX FÍSICO (Unidades físicas por almacén y producto)
     public function kardexFisico(Request $request)
     {
+        $modoVista = $request->input('modo_vista', 'original'); // 'original' | 'unidades'
+
         $query = DB::table('kardex')
             ->join('producto', 'kardex.codigo_producto', '=', 'producto.codigo')
             ->join('almacen', 'kardex.codigo_almacen', '=', 'almacen.codigo_almacen')
@@ -1019,6 +1100,7 @@ class InventarioController extends Controller
                 'producto.descripcion as producto_descripcion',
                 'producto.codigo_tipo_producto',
                 'producto.codigo_unidad_medida',
+                'producto.peso_unitario_gr',
                 'unidad_medida.descripcion as unidad_medida_desc'
             )
             ->distinct()
@@ -1107,6 +1189,22 @@ class InventarioController extends Controller
             $movimientos = collect();
         }
 
+        // Mapas de peso unitario (en gramos) por lote y por producto/molde para conversión KG -> UND
+        $pesosPorLote = DB::table('produccion_ingresos_proceso')
+            ->whereNotNull('peso_unitario_gr')
+            ->where('peso_unitario_gr', '>', 0)
+            ->whereNotNull('lote_produccion')
+            ->pluck('peso_unitario_gr', 'lote_produccion')
+            ->map(fn($v) => (float) $v)
+            ->toArray();
+
+        $pesosProductosMap = DB::table('producto')
+            ->whereNotNull('peso_unitario_gr')
+            ->where('peso_unitario_gr', '>', 0)
+            ->pluck('peso_unitario_gr', 'codigo')
+            ->map(fn($v) => (float) $v)
+            ->toArray();
+
         // Agrupar los grupos paginados por Almacén para el renderizado continuo
         $almacenesConProductos = $gruposPaginados->getCollection()->groupBy('codigo_almacen');
 
@@ -1132,7 +1230,10 @@ class InventarioController extends Controller
             'productosList', 
             'resumen', 
             'productoSeleccionado',
-            'stockActualEnAlmacen'
+            'stockActualEnAlmacen',
+            'modoVista',
+            'pesosPorLote',
+            'pesosProductosMap'
         ));
     }
 

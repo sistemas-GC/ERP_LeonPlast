@@ -20,7 +20,7 @@
             >
             <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
         </div>
-        <div class="relative sm:w-72">
+        <div class="relative sm:w-64">
             <select id="almacenFilter" name="almacen" class="input-field pl-10 appearance-none shadow-xs">
                 <option value="todos">Todos los almacenes</option>
                 @foreach($almacenes as $almacen)
@@ -31,6 +31,17 @@
                 @endforeach
             </select>
             <i class="fas fa-warehouse absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        </div>
+        <div class="relative sm:w-64">
+            <select id="modoVistaFilter" name="modo_vista" class="input-field pl-10 appearance-none shadow-xs font-semibold text-slate-700">
+                <option value="original" {{ ($modoVista ?? request('modo_vista', 'original')) === 'original' ? 'selected' : '' }}>
+                    Ver en: Unidad del Producto
+                </option>
+                <option value="unidades" {{ ($modoVista ?? request('modo_vista')) === 'unidades' ? 'selected' : '' }}>
+                    Ver en: Unidades (UND)
+                </option>
+            </select>
+            <i class="fas fa-exchange-alt absolute left-4 top-1/2 -translate-y-1/2 text-primary"></i>
         </div>
     </x-filter-bar>
 
@@ -78,12 +89,21 @@
                                 </td>
 
                                 <td class="px-4 md:px-6 py-3 text-right whitespace-nowrap">
-                                    <span class="inline-flex px-2.5 py-0.5 rounded-lg text-xs md:text-sm font-bold shadow-2xs
-                                        {{ $bajoMinimo || $stock->stock_actual <= 0
-                                            ? 'bg-red-50 text-red-700 border border-red-200/80'
-                                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200/80' }}">
-                                        {{ number_format($stock->stock_actual, 2) }}
-                                    </span>
+                                    @php
+                                        $verEnUnidades = (($modoVista ?? request('modo_vista', 'original')) === 'unidades') && !empty($stock->tiene_conversion);
+                                    @endphp
+                                    @if($verEnUnidades)
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs md:text-sm font-bold shadow-2xs bg-blue-50 text-blue-700 border border-blue-200/80" title="Convertido con peso: {{ rtrim(rtrim(number_format($stock->peso_referencia_gr ?? 0, 4, '.', ''), '0'), '.') }} gr/und">
+                                            {{ number_format($stock->stock_unidades ?? 0) }} <span class="text-[10px] font-extrabold">UND</span>
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs md:text-sm font-bold shadow-2xs
+                                            {{ $bajoMinimo || $stock->stock_actual <= 0
+                                                ? 'bg-red-50 text-red-700 border border-red-200/80'
+                                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200/80' }}">
+                                            {{ number_format($stock->stock_actual, 2) }} <span class="text-[10px] font-semibold opacity-75">{{ $stock->codigo_unidad_medida ?? 'KG' }}</span>
+                                        </span>
+                                    @endif
                                 </td>
 
                                 <td class="px-4 md:px-6 py-3 text-right text-xs font-medium text-slate-600 whitespace-nowrap">
@@ -147,6 +167,12 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
                 url.searchParams.delete('almacen');
             }
+            const modoFilter = document.getElementById('modoVistaFilter');
+            if (modoFilter && modoFilter.value !== 'original') {
+                url.searchParams.set('modo_vista', modoFilter.value);
+            } else {
+                url.searchParams.delete('modo_vista');
+            }
             url.searchParams.delete('page');
         }
         window.history.pushState({}, '', url);
@@ -176,6 +202,13 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('almacenFilter').addEventListener('change', function () {
         fetchResults();
     });
+
+    const modoVistaEl = document.getElementById('modoVistaFilter');
+    if (modoVistaEl) {
+        modoVistaEl.addEventListener('change', function () {
+            fetchResults();
+        });
+    }
 
     tableContainer.addEventListener('click', function(e) {
         const aTag = e.target.closest('nav[role="navigation"] a');

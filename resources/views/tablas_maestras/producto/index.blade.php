@@ -63,6 +63,15 @@
                                 @endif
                             </th>
                             <th class="py-3 px-4 md:px-6 text-center w-40 cursor-pointer hover:bg-slate-700 transition"
+                                onclick="window.location.href='{{ request()->fullUrlWithQuery(['sort' => 'codigo_unidad_medida', 'order' => request('sort') === 'codigo_unidad_medida' && request('order') === 'asc' ? 'desc' : 'asc']) }}'">
+                                Unidad de Medida
+                                @if(request('sort') === 'codigo_unidad_medida')
+                                    <i class="fas fa-sort-{{ request('order') === 'asc' ? 'up' : 'down' }} ml-1"></i>
+                                @else
+                                    <i class="fas fa-sort ml-1 text-slate-400 opacity-60"></i>
+                                @endif
+                            </th>
+                            <th class="py-3 px-4 md:px-6 text-center w-40 cursor-pointer hover:bg-slate-700 transition"
                                 onclick="window.location.href='{{ request()->fullUrlWithQuery(['sort' => 'codigo_tipo_producto', 'order' => request('sort') === 'codigo_tipo_producto' && request('order') === 'asc' ? 'desc' : 'asc']) }}'">
                                 Tipo
                                 @if(request('sort') === 'codigo_tipo_producto')
@@ -79,6 +88,16 @@
                             <tr class="hover:bg-slate-50/80 transition duration-150">
                                 <td class="px-4 md:px-6 py-2.5 font-bold text-xs md:text-sm text-slate-900 whitespace-nowrap">{{ $pro->codigo }}</td>
                                 <td class="px-4 md:px-6 py-2.5 text-xs md:text-sm font-medium text-slate-800 uppercase">{{ $pro->descripcion }}</td>
+                                <td class="px-4 md:px-6 py-2.5 text-center whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200/80">
+                                        {{ $pro->unidad ? $pro->unidad->descripcion : ($pro->codigo_unidad_medida ?? 'Sin U.M.') }}
+                                    </span>
+                                    @if(!empty($pro->peso_unitario_gr) && $pro->peso_unitario_gr > 0)
+                                        <span class="block text-[10px] font-bold text-blue-600 mt-0.5" title="Peso por unidad para conversión a UND">
+                                            {{ rtrim(rtrim(number_format($pro->peso_unitario_gr, 4, '.', ''), '0'), '.') }} gr/und
+                                        </span>
+                                    @endif
+                                </td>
                                 <td class="px-4 md:px-6 py-2.5 text-center whitespace-nowrap">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-100/80">
                                         {{ $pro->tipo ? $pro->tipo->descripcion : 'Sin Tipo' }}
@@ -102,7 +121,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="py-10">
+                                <td colspan="5" class="py-10">
                                     <x-empty-state icon="fa-box-open" message="No se encontraron productos con los criterios ingresados." />
                                 </td>
                             </tr>

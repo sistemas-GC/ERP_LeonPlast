@@ -21,6 +21,7 @@ class Producto extends Model
         'descripcion',
         'codigo_tipo_producto',
         'codigo_unidad_medida',
+        'peso_unitario_gr',
         'codigo_color',
         'es_producto_proceso',
         'estado',

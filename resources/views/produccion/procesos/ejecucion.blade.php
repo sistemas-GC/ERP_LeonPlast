@@ -171,8 +171,8 @@
                     <select id="molde_global" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3" onchange="vincularFormula()">
                         <option value="">-- Seleccione --</option>
                         @foreach($moldes as $m)
-                            <option value="{{ $m->codigo }}" data-formula="{{ $m->codigo_formula ?? '' }}">
-                                {{ $m->codigo }} - {{ $m->descripcion }}
+                            <option value="{{ $m->codigo }}" data-formula="{{ $m->codigo_formula ?? '' }}" data-cavidades="{{ $m->cavidades ?? '' }}" data-peso-gr="{{ $m->peso_unitario_gr ?? '' }}">
+                                {{ $m->codigo }} - {{ $m->descripcion }}{{ !empty($m->cavidades) ? ' (' . $m->cavidades . ' cav.)' : '' }}
                             </option>
                         @endforeach
                     </select>
@@ -181,10 +181,10 @@
                 
                 <div class="flex-1 min-w-50" id="wrapper_formula">
                     <label class="block text-xs font-semibold text-slate-700 mb-1" id="lbl_formula">{{ $es_molido ? 'Producto a Moler' : ($es_ensamblado || $es_ensamblado_manual ? 'Producto a Ensamblar' : ($es_encartonado ? 'Fórmula Encartonado' : ($es_embolsado ? 'Fórmula / Producto a Embolsar' : 'Fórmula/Color'))) }}</label>
-                    <select id="formula_selector" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3">
+                    <select id="formula_selector" class="w-full border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3" onchange="typeof actualizarPesoDesdeFormula === 'function' && actualizarPesoDesdeFormula()">
                         <option value="">-- Seleccione --</option>
                         @foreach($formulas_disponibles as $fm)
-                            <option value="{{ $fm->codigo }}">{{ $fm->codigo }} - {{ $fm->descripcion }}</option>
+                            <option value="{{ $fm->codigo }}" data-peso-gr="{{ $fm->peso_unitario_gr ?? '' }}">{{ $fm->codigo }} - {{ $fm->descripcion }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -249,8 +249,20 @@
                 
                 <div>
                     <label class="block text-xs font-semibold text-slate-700 mb-1" id="lbl_cantidad_global">{{ $es_encartonado ? 'Cant. a producir (SET)' : ($es_embolsado ? 'Cant. a producir (BOL/PAQ)' : 'Cant. (KG)') }}</label>
-                    <input type="number" id="cantidad_global" class="w-24 border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3" step="0.01" oninput="typeof actualizarCalculadoraEncartonado === 'function' && actualizarCalculadoraEncartonado()">
+                    <input type="number" id="cantidad_global" class="w-24 border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-3" step="0.01" oninput="typeof actualizarCalculadoraEncartonado === 'function' && actualizarCalculadoraEncartonado(); typeof actualizarConversionUnidadesLive === 'function' && actualizarConversionUnidadesLive();">
                 </div>
+
+                @if($es_inyectado || $es_ensamblado || $es_ensamblado_manual)
+                <div id="wrapper_peso_unitario_gr">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1" title="Peso real en gramos por pieza/cavidad en esta inyectora">
+                        Peso x Pieza (gr)
+                    </label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="peso_unitario_gr_global" class="w-24 border-slate-300 rounded-md shadow-sm focus:ring-primary focus:border-primary text-sm py-2 px-2.5" step="0.01" min="0.01" placeholder="Ej: 1.99" oninput="typeof actualizarConversionUnidadesLive === 'function' && actualizarConversionUnidadesLive()">
+                        <span id="badge_conversion_unidades_live" class="hidden px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-800 border border-blue-200 text-xs font-extrabold whitespace-nowrap shadow-2xs"></span>
+                    </div>
+                </div>
+                @endif
             </div>
 
             <div class="flex flex-wrap items-end gap-4 mt-2">
@@ -564,8 +576,31 @@
                                         @if($es_inyectado)
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-slate-500">{{ $first->codigo_molde ?? 'N/A' }}</td>
                                         @endif
-                                        <td class="px-3 py-3 whitespace-nowrap text-sm font-bold text-slate-900">{{ number_format($totalKG, 2) }}</td>
-                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-slate-500">KG</td>
+                                        @php
+                                            $formulaCod = $first->codigo_formula_produccion ?? '';
+                                            $pepCodBase = !empty($formulaCod) ? preg_replace('/\.[A-Z0-9]+$/', '', $formulaCod) : ($first->codigo_producto ?? '');
+                                            $pesoGrCarga = $first->peso_unitario_gr
+                                                ?? ($first->lote_produccion_pep ? ($pesos_lotes_map[$first->lote_produccion_pep] ?? null) : null)
+                                                ?? ($first->codigo_molde ? ($pesos_moldes_map[$first->codigo_molde] ?? null) : null)
+                                                ?? ($pesos_productos_map[$pepCodBase] ?? ($pesos_productos_map[$formulaCod] ?? ($pesos_productos_map[$first->codigo_producto] ?? null)));
+                                            $unidadesCarga = ($pesoGrCarga && $pesoGrCarga > 0 && $totalKG > 0)
+                                                ? round(($totalKG * 1000) / $pesoGrCarga)
+                                                : null;
+                                        @endphp
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm font-bold text-slate-900">
+                                            {{ number_format($totalKG, 2) }}
+                                            @if($unidadesCarga)
+                                                <span class="block text-[10px] font-extrabold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded mt-0.5" title="Peso unitario: {{ rtrim(rtrim(number_format($pesoGrCarga, 4, '.', ''), '0'), '.') }} gr/und">
+                                                    &approx; {{ number_format($unidadesCarga) }} UND
+                                                </span>
+                                            @endif
+                                        </td>
+                                        <td class="px-3 py-3 whitespace-nowrap text-sm text-slate-500">
+                                            KG
+                                            @if($unidadesCarga)
+                                                <span class="block text-[10px] text-slate-400 font-mono">({{ rtrim(rtrim(number_format($pesoGrCarga, 4, '.', ''), '0'), '.') }} gr)</span>
+                                            @endif
+                                        </td>
                                         <td class="px-3 py-3 whitespace-nowrap text-sm text-slate-500">{{ $first->codigo_trabajador }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-xs text-slate-500">{{ $first->fecha_inicio ?? $first->fecha ?? 'N/A' }}</td>
                                         <td class="px-3 py-3 whitespace-nowrap text-xs text-slate-500">{{ $first->hora_inicio }} - {{ $first->hora_fin }}</td>
@@ -619,7 +654,22 @@
                                         @if($es_inyectado)
                                         <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-500">{{ $r->codigo_molde }}</td>
                                         @endif
-                                        <td class="px-3 py-2 whitespace-nowrap text-xs font-semibold text-slate-700">{{ number_format($r->cantidad, 2) }}</td>
+                                        @php
+                                            $pesoCompGr = $r->peso_unitario_gr
+                                                ?? ($pesos_productos_map[$r->codigo_producto] ?? null)
+                                                ?? ($r->codigo_molde ? ($pesos_moldes_map[$r->codigo_molde] ?? null) : null);
+                                            $unidadesComp = ($pesoCompGr && $pesoCompGr > 0 && $r->cantidad > 0 && strtoupper($r->codigo_unidad_medida) === 'KG')
+                                                ? round(($r->cantidad * 1000) / $pesoCompGr)
+                                                : null;
+                                        @endphp
+                                        <td class="px-3 py-2 whitespace-nowrap text-xs font-semibold text-slate-700">
+                                            {{ number_format($r->cantidad, 2) }}
+                                            @if($unidadesComp)
+                                                <span class="block text-[10px] font-bold text-blue-600" title="{{ rtrim(rtrim(number_format($pesoCompGr, 4, '.', ''), '0'), '.') }} gr/und">
+                                                    &approx; {{ number_format($unidadesComp) }} UND
+                                                </span>
+                                            @endif
+                                        </td>
                                         <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-500">{{ $r->codigo_unidad_medida }}</td>
                                         <td class="px-3 py-2 whitespace-nowrap text-xs text-slate-500">{{ $r->codigo_trabajador }}</td>
                                         <td colspan="3" class="px-3 py-2 text-xs text-slate-400">Detalle Interno</td>
@@ -1248,11 +1298,94 @@
         });
     }
 
+    const pesosMoldesMap = @json($pesos_moldes_map ?? []);
+    const pesosProductosMap = @json($pesos_productos_map ?? []);
+
+    function resolverPesoEstandarActual() {
+        const sm = document.getElementById('molde_global');
+        const sf = document.getElementById('formula_selector');
+
+        // Prioridad 1: Peso del molde seleccionado
+        if (sm && sm.value) {
+            const codM = sm.value;
+            if (pesosMoldesMap[codM] && parseFloat(pesosMoldesMap[codM]) > 0) {
+                return parseFloat(pesosMoldesMap[codM]);
+            }
+            if (sm.selectedIndex > 0) {
+                const attrM = parseFloat(sm.options[sm.selectedIndex].getAttribute('data-peso-gr') || 0);
+                if (attrM > 0) return attrM;
+            }
+        }
+
+        // Prioridad 2: Peso del producto / fórmula seleccionada
+        if (sf && sf.value) {
+            const codF = sf.value;
+            const codBase = codF.replace(/\.[A-Z0-9]+$/, '');
+            if (pesosProductosMap[codF] && parseFloat(pesosProductosMap[codF]) > 0) {
+                return parseFloat(pesosProductosMap[codF]);
+            }
+            if (pesosProductosMap[codBase] && parseFloat(pesosProductosMap[codBase]) > 0) {
+                return parseFloat(pesosProductosMap[codBase]);
+            }
+            if (sf.selectedIndex > 0) {
+                const attrF = parseFloat(sf.options[sf.selectedIndex].getAttribute('data-peso-gr') || 0);
+                if (attrF > 0) return attrF;
+            }
+        }
+
+        return 0;
+    }
+
     function vincularFormula() {
         const sm = document.getElementById('molde_global');
         const sf = document.getElementById('formula_selector');
-        if (sm && sm.selectedIndex > 0 && sm.options[sm.selectedIndex].getAttribute('data-formula')) {
-            sf.value = sm.options[sm.selectedIndex].getAttribute('data-formula');
+        if (sm && sm.selectedIndex > 0) {
+            const optMolde = sm.options[sm.selectedIndex];
+            if (optMolde.getAttribute('data-formula') && sf) {
+                sf.value = optMolde.getAttribute('data-formula');
+            }
+        }
+        actualizarPesoDesdeFormula();
+    }
+
+    function actualizarPesoDesdeFormula() {
+        const inputPesoGr = document.getElementById('peso_unitario_gr_global');
+        if (!inputPesoGr) return;
+
+        const pesoEst = resolverPesoEstandarActual();
+        if (pesoEst > 0) {
+            inputPesoGr.value = parseFloat(pesoEst.toFixed(4));
+        }
+        actualizarConversionUnidadesLive();
+    }
+
+    function actualizarConversionUnidadesLive() {
+        const badge = document.getElementById('badge_conversion_unidades_live');
+        if (!badge) return;
+        const inputPesoGr = document.getElementById('peso_unitario_gr_global');
+        let pesoGr = parseFloat(inputPesoGr?.value || 0);
+
+        // Si el campo está vacío pero ya hay un molde o fórmula seleccionada con peso configurado, precargarlo automáticamente
+        if ((!pesoGr || pesoGr <= 0) && inputPesoGr && document.activeElement !== inputPesoGr) {
+            const pesoEst = resolverPesoEstandarActual();
+            if (pesoEst > 0) {
+                pesoGr = parseFloat(pesoEst.toFixed(4));
+                inputPesoGr.value = pesoGr;
+            }
+        }
+
+        const cantKg = parseFloat(document.getElementById('cantidad_global')?.value || 0);
+
+        if (pesoGr > 0 && cantKg > 0) {
+            const unidades = Math.round((cantKg * 1000) / pesoGr);
+            badge.innerHTML = `&approx; ${unidades.toLocaleString('es-PE')} UND`;
+            badge.classList.remove('hidden');
+        } else if (pesoGr > 0) {
+            const undPorKg = Math.round(1000 / pesoGr);
+            badge.innerHTML = `1 KG &approx; ${undPorKg.toLocaleString('es-PE')} UND`;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
         }
     }
 
@@ -1519,6 +1652,10 @@
                 selectedItemsEncartonado = estado.selected_items_encartonado;
             }
 
+            if (typeof actualizarPesoDesdeFormula === 'function') {
+                actualizarPesoDesdeFormula();
+            }
+
         } catch (e) {
             console.warn('Error al restaurar cabecera:', e);
         }
@@ -1527,6 +1664,9 @@
     document.addEventListener('DOMContentLoaded', function () {
         setupTrabajadorPredictivo();
         restaurarEstadoCabecera();
+        if (typeof actualizarPesoDesdeFormula === 'function') {
+            actualizarPesoDesdeFormula();
+        }
 
         const formulaSelect = document.getElementById('formula_selector');
         if (formulaSelect) {
@@ -2388,7 +2528,8 @@
             cantidad_reciclado: cantidad_reciclado,
             inyectada_inicial: inyectada_inicial,
             inyectada_final: inyectada_final,
-            tiempo_ciclo: tiempo_ciclo
+            tiempo_ciclo: tiempo_ciclo,
+            peso_unitario_gr: document.getElementById('peso_unitario_gr_global') ? document.getElementById('peso_unitario_gr_global').value : null
         };
 
         function ejecutarEnvio() {

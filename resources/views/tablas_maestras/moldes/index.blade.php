@@ -29,6 +29,8 @@
                         <tr class="bg-slate-800 text-white text-[11px] uppercase tracking-wider font-bold">
                             <th class="py-3 px-4 md:px-6 w-32">Código</th>
                             <th class="py-3 px-4 md:px-6">Descripción del Molde</th>
+                            <th class="py-3 px-4 md:px-6 text-center w-36">Cavidades</th>
+                            <th class="py-3 px-4 md:px-6 text-center w-40">Peso x Cavidad</th>
                             <th class="py-3 px-4 md:px-6 text-center w-36">Acciones</th>
                         </tr>
                     </thead>
@@ -37,6 +39,24 @@
                             <tr class="hover:bg-slate-50/80 transition duration-150">
                                 <td class="px-4 md:px-6 py-2.5 font-bold text-xs md:text-sm text-slate-900 whitespace-nowrap">{{ $molde->codigo }}</td>
                                 <td class="px-4 md:px-6 py-2.5 text-xs md:text-sm font-medium text-slate-800 uppercase">{{ $molde->descripcion }}</td>
+                                <td class="px-4 md:px-6 py-2.5 text-center whitespace-nowrap">
+                                    @if(!is_null($molde->cavidades))
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/80">
+                                            {{ $molde->cavidades }} {{ Str::plural('cavidad', $molde->cavidades) }}
+                                        </span>
+                                    @else
+                                        <span class="text-xs text-slate-400 italic">—</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 md:px-6 py-2.5 text-center whitespace-nowrap">
+                                    @if(!is_null($molde->peso_unitario_gr) && $molde->peso_unitario_gr > 0)
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                                            {{ rtrim(rtrim(number_format($molde->peso_unitario_gr, 4, '.', ''), '0'), '.') }} gr
+                                        </span>
+                                    @else
+                                        <span class="text-xs text-slate-400 italic">—</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 md:px-6 py-2.5 text-center whitespace-nowrap">
                                     <div class="flex items-center justify-center gap-1.5 md:gap-2">
                                         <a href="{{ route('moldes.edit', $molde->codigo) }}" class="inline-flex items-center justify-center w-8 h-8 text-primary bg-primary-50 hover:bg-primary hover:text-white rounded-lg transition-all shadow-2xs" title="Editar">
@@ -53,7 +73,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="3" class="py-10">
+                                <td colspan="5" class="py-10">
                                     <x-empty-state icon="fa-cube" message="No se encontraron moldes registrados." />
                                 </td>
                             </tr>
@@ -76,22 +96,47 @@
         const tableContainer = document.getElementById('table-container');
         let timeout = null;
 
-        function fetchResults() {
-            const url = new URL(window.location.href);
-            url.searchParams.set('search', searchInput.value);
+        function fetchResults(customUrl = null) {
+            const url = customUrl || new URL(window.location.href);
+            if (!customUrl) {
+                const val = searchInput.value.trim();
+                if (val) {
+                    url.searchParams.set('search', val);
+                } else {
+                    url.searchParams.delete('search');
+                }
+                url.searchParams.delete('page');
+            }
             
+            tableContainer.classList.add('opacity-50', 'pointer-events-none');
+
             fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(res => res.text())
                 .then(html => {
                     const doc = new DOMParser().parseFromString(html, 'text/html');
                     const newTable = doc.getElementById('table-container');
-                    if (newTable) tableContainer.innerHTML = newTable.innerHTML;
+                    if (newTable) {
+                        tableContainer.innerHTML = newTable.innerHTML;
+                        window.history.replaceState({}, '', url);
+                    }
+                })
+                .catch(err => console.error('Error al buscar:', err))
+                .finally(() => {
+                    tableContainer.classList.remove('opacity-50', 'pointer-events-none');
                 });
         }
 
         searchInput.addEventListener('input', () => {
             clearTimeout(timeout);
-            timeout = setTimeout(fetchResults, 400);
+            timeout = setTimeout(() => fetchResults(), 350);
+        });
+
+        tableContainer.addEventListener('click', function(e) {
+            const aTag = e.target.closest('nav[role="navigation"] a');
+            if (aTag) {
+                e.preventDefault();
+                fetchResults(new URL(aTag.href));
+            }
         });
     });
 </script>

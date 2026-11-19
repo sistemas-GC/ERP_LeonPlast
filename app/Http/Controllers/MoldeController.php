@@ -34,15 +34,23 @@ class MoldeController extends Controller
         $request->validate([
             'codigo' => 'required|string|max:20|unique:molde,codigo',
             'descripcion' => 'required|string|max:255',
+            'cavidades' => 'nullable|integer|min:1',
+            'peso_unitario_gr' => 'nullable|numeric|min:0.0001',
         ], [
             'codigo.unique' => 'Este código de molde ya existe en el sistema.',
             'codigo.required' => 'El código es obligatorio.',
-            'descripcion.required' => 'La descripción es obligatoria.'
+            'descripcion.required' => 'La descripción es obligatoria.',
+            'cavidades.integer' => 'La cantidad de cavidades debe ser un número entero.',
+            'cavidades.min' => 'La cantidad de cavidades debe ser al menos 1.',
+            'peso_unitario_gr.numeric' => 'El peso por cavidad debe ser un valor numérico.',
+            'peso_unitario_gr.min' => 'El peso por cavidad debe ser mayor a 0.'
         ]);
 
         Molde::create([
             'codigo' => strtoupper($request->codigo),
             'descripcion' => $request->descripcion,
+            'cavidades' => $request->filled('cavidades') ? (int) $request->cavidades : null,
+            'peso_unitario_gr' => $request->filled('peso_unitario_gr') ? (float) $request->peso_unitario_gr : null,
             'activo' => 1
         ]);
 
@@ -61,10 +69,20 @@ class MoldeController extends Controller
 
         $request->validate([
             'descripcion' => 'required|string|max:255',
+            'cavidades' => 'nullable|integer|min:1',
+            'peso_unitario_gr' => 'nullable|numeric|min:0.0001',
+        ], [
+            'descripcion.required' => 'La descripción es obligatoria.',
+            'cavidades.integer' => 'La cantidad de cavidades debe ser un número entero.',
+            'cavidades.min' => 'La cantidad de cavidades debe ser al menos 1.',
+            'peso_unitario_gr.numeric' => 'El peso por cavidad debe ser un valor numérico.',
+            'peso_unitario_gr.min' => 'El peso por cavidad debe ser mayor a 0.'
         ]);
 
         $molde->update([
-            'descripcion' => $request->descripcion
+            'descripcion' => $request->descripcion,
+            'cavidades' => $request->filled('cavidades') ? (int) $request->cavidades : null,
+            'peso_unitario_gr' => $request->filled('peso_unitario_gr') ? (float) $request->peso_unitario_gr : null,
         ]);
 
         return redirect()->route('moldes.index')->with('success', 'Molde actualizado correctamente.');

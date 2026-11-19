@@ -76,22 +76,47 @@
         const tableContainer = document.getElementById('table-container');
         let timeout = null;
 
-        function fetchResults() {
-            const url = new URL(window.location.href);
-            url.searchParams.set('search', searchInput.value);
+        function fetchResults(customUrl = null) {
+            const url = customUrl || new URL(window.location.href);
+            if (!customUrl) {
+                const val = searchInput.value.trim();
+                if (val) {
+                    url.searchParams.set('search', val);
+                } else {
+                    url.searchParams.delete('search');
+                }
+                url.searchParams.delete('page');
+            }
             
+            tableContainer.classList.add('opacity-50', 'pointer-events-none');
+
             fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(res => res.text())
                 .then(html => {
                     const doc = new DOMParser().parseFromString(html, 'text/html');
                     const newTable = doc.getElementById('table-container');
-                    if (newTable) tableContainer.innerHTML = newTable.innerHTML;
+                    if (newTable) {
+                        tableContainer.innerHTML = newTable.innerHTML;
+                        window.history.replaceState({}, '', url);
+                    }
+                })
+                .catch(err => console.error('Error al buscar:', err))
+                .finally(() => {
+                    tableContainer.classList.remove('opacity-50', 'pointer-events-none');
                 });
         }
 
         searchInput.addEventListener('input', () => {
             clearTimeout(timeout);
-            timeout = setTimeout(fetchResults, 400);
+            timeout = setTimeout(() => fetchResults(), 350);
+        });
+
+        tableContainer.addEventListener('click', function(e) {
+            const aTag = e.target.closest('nav[role="navigation"] a');
+            if (aTag) {
+                e.preventDefault();
+                fetchResults(new URL(aTag.href));
+            }
         });
     });
 </script>

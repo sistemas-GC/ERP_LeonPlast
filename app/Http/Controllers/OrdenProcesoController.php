@@ -649,7 +649,7 @@ class OrdenProcesoController extends Controller
             $productCode = $orden->codigo_producto_proceso;
             
             $query = DB::table('molde as m')
-                ->select('m.codigo', 'm.descripcion', DB::raw('(SELECT codigo_formula FROM composicion_formula cf WHERE cf.codigo_molde = m.codigo LIMIT 1) as codigo_formula'))
+                ->select('m.codigo', 'm.descripcion', 'm.cavidades', 'm.peso_unitario_gr', DB::raw('(SELECT codigo_formula FROM composicion_formula cf WHERE cf.codigo_molde = m.codigo LIMIT 1) as codigo_formula'))
                 ->where('m.activo', 1);
 
             if ($productCode) {
@@ -662,7 +662,7 @@ class OrdenProcesoController extends Controller
             // Si no hay moldes vinculados al producto, traer todos los activos como fallback
             if ($moldes->isEmpty()) {
                 $query_fallback = DB::table('molde')
-                    ->select('codigo', 'descripcion', DB::raw('(SELECT codigo_formula FROM composicion_formula cf WHERE cf.codigo_molde = molde.codigo LIMIT 1) as codigo_formula'))
+                    ->select('codigo', 'descripcion', 'cavidades', 'peso_unitario_gr', DB::raw('(SELECT codigo_formula FROM composicion_formula cf WHERE cf.codigo_molde = molde.codigo LIMIT 1) as codigo_formula'))
                     ->where('activo', 1);
                     
                 $descProducto = strtoupper($orden->descripcion_producto_proceso);
@@ -678,6 +678,42 @@ class OrdenProcesoController extends Controller
 
                 $moldes = $query_fallback->get();
             }
+        }
+
+        // Mapas de peso unitario (en gramos) por Producto, Molde y Lote para conversión KG -> UND
+        $pesos_productos_map = DB::table('producto')
+            ->whereNotNull('peso_unitario_gr')
+            ->where('peso_unitario_gr', '>', 0)
+            ->pluck('peso_unitario_gr', 'codigo')
+            ->map(fn($v) => (float) $v)
+            ->toArray();
+
+        $pesos_moldes_map = DB::table('molde')
+            ->whereNotNull('peso_unitario_gr')
+            ->where('peso_unitario_gr', '>', 0)
+            ->pluck('peso_unitario_gr', 'codigo')
+            ->map(fn($v) => (float) $v)
+            ->toArray();
+
+        $pesos_lotes_map = DB::table('produccion_ingresos_proceso')
+            ->whereNotNull('peso_unitario_gr')
+            ->where('peso_unitario_gr', '>', 0)
+            ->whereNotNull('lote_produccion')
+            ->pluck('peso_unitario_gr', 'lote_produccion')
+            ->map(fn($v) => (float) $v)
+            ->toArray();
+
+        // Enriquecer fórmulas con su peso unitario estándar de referencia (desde el producto PEP o molde asociado)
+        foreach ($formulas_disponibles as $fm) {
+            $pepCode = $this->determinarCodigoPEP($fm->codigo);
+            $moldeFormula = DB::table('composicion_formula')
+                ->where('codigo_formula', $fm->codigo)
+                ->whereNotNull('codigo_molde')
+                ->value('codigo_molde');
+            $fm->codigo_molde_default = $moldeFormula;
+            $fm->peso_unitario_gr = $pesos_productos_map[$pepCode]
+                ?? $pesos_productos_map[$fm->codigo]
+                ?? ($moldeFormula ? ($pesos_moldes_map[$moldeFormula] ?? null) : null);
         }
 
         $query_centros = DB::table('centro_trabajo_produccion as ct')
@@ -736,7 +772,8 @@ class OrdenProcesoController extends Controller
         return view('produccion.procesos.ejecucion', compact(
             'orden', 'proceso', 'estado_proceso_actual', 'es_actividad', 'es_mezclado', 'es_inyectado', 'es_ensamblado', 'es_ensamblado_manual', 'es_encartonado', 'es_molido', 'es_troquelado', 'es_horneado', 'peso_inicial', 'tara', 'peso_neto', 'peso_consumido', 'peso_bruto', 'merma_empaque_total',
             'formulas_disponibles', 'inventario_merma_clip', 'inventario_merma_cascara', 'inventario_merma_carton', 'registrados', 'cargas_agrupadas', 'tiene_componentes', 'tipos_producto',
-            'colores', 'unidades', 'trabajadores', 'moldes', 'centros_trabajo', 'almacenes', 'proceso_produccion_almacen', 'producto_sugerido', 'inyectada_inicial_sugerida', 'ops_disponibles_encartonado', 'es_embolsado', 'stock_disponible_embolsado', 'bolsas_disponibles_embolsado', 'inventario_merma_empaque'
+            'colores', 'unidades', 'trabajadores', 'moldes', 'centros_trabajo', 'almacenes', 'proceso_produccion_almacen', 'producto_sugerido', 'inyectada_inicial_sugerida', 'ops_disponibles_encartonado', 'es_embolsado', 'stock_disponible_embolsado', 'bolsas_disponibles_embolsado', 'inventario_merma_empaque',
+            'pesos_productos_map', 'pesos_moldes_map', 'pesos_lotes_map'
         ));
     }
 
@@ -1337,6 +1374,13 @@ class OrdenProcesoController extends Controller
                     ]);
                 }
 
+                $peso_unitario_gr_comp = null;
+                if (isset($comp['peso_unitario_gr']) && $comp['peso_unitario_gr'] !== '' && $comp['peso_unitario_gr'] !== null && floatval($comp['peso_unitario_gr']) > 0) {
+                    $peso_unitario_gr_comp = floatval($comp['peso_unitario_gr']);
+                } elseif ($request->filled('peso_unitario_gr') && floatval($request->input('peso_unitario_gr')) > 0) {
+                    $peso_unitario_gr_comp = floatval($request->input('peso_unitario_gr'));
+                }
+
                 $componente = ComponenteOrdenProduccion::create([
                     'idop' => $idop,
                     'id_proceso' => $id,
@@ -1371,6 +1415,7 @@ class OrdenProcesoController extends Controller
                     'observacion' => $comp['observacion'] ?? ($tipo_op_origen === 'merma_empaque' ? 'MERMA EMPAQUE' : ($tipo_op_origen === 'merma_clip' ? 'MERMA CLIP' : null)),
                     'estado' => 1,
                     'tipo_operacion' => $request->input('tipo_operacion_origen', 'inyectado'),
+                    'peso_unitario_gr' => $peso_unitario_gr_comp,
                 ]);
 
                 if (isset($key) && isset($grupos_pep[$key])) {
@@ -1883,6 +1928,31 @@ class OrdenProcesoController extends Controller
                             'usuario_registro' => $usuario_id
                         ]);
 
+                        // Determinar peso unitario real para este lote PEP (del request/carga, del molde o del producto PEP)
+                        $peso_lote_pep = null;
+                        if ($request->filled('peso_unitario_gr') && floatval($request->input('peso_unitario_gr')) > 0) {
+                            $peso_lote_pep = floatval($request->input('peso_unitario_gr'));
+                        } else {
+                            foreach ($componentes as $cItem) {
+                                if (!empty($cItem['peso_unitario_gr']) && floatval($cItem['peso_unitario_gr']) > 0) {
+                                    $peso_lote_pep = floatval($cItem['peso_unitario_gr']);
+                                    break;
+                                }
+                            }
+                        }
+                        if (!$peso_lote_pep && $codigo_molde_op) {
+                            $pesoMoldeDb = DB::table('molde')->where('codigo', $codigo_molde_op)->value('peso_unitario_gr');
+                            if ($pesoMoldeDb && floatval($pesoMoldeDb) > 0) {
+                                $peso_lote_pep = floatval($pesoMoldeDb);
+                            }
+                        }
+                        if (!$peso_lote_pep) {
+                            $pesoProdDb = DB::table('producto')->where('codigo', $g['codigo_pep'])->value('peso_unitario_gr');
+                            if ($pesoProdDb && floatval($pesoProdDb) > 0) {
+                                $peso_lote_pep = floatval($pesoProdDb);
+                            }
+                        }
+
                         // 4. Registro histórico en produccion_ingresos_proceso (APROBADO directo)
                         DB::table('produccion_ingresos_proceso')->insert([
                             'idop' => $idop,
@@ -1897,7 +1967,8 @@ class OrdenProcesoController extends Controller
                             'usuario_registro' => $usuario_id,
                             'estado' => 'APROBADO',
                             'codigo_molde' => $codigo_molde_op,
-                            'descripcion_molde' => $descripcion_molde_op
+                            'descripcion_molde' => $descripcion_molde_op,
+                            'peso_unitario_gr' => $peso_lote_pep
                         ]);
                         $ingresos_creados++;
                     }
@@ -3632,6 +3703,10 @@ class OrdenProcesoController extends Controller
             }
 
             // 2. Construir el arreglo en formato de la función original
+            $peso_unitario_gr_input = $request->filled('peso_unitario_gr') && floatval($request->input('peso_unitario_gr')) > 0
+                ? floatval($request->input('peso_unitario_gr'))
+                : null;
+
             $componentes_payload = [];
             foreach ($componentes_a_insertar as $comp) {
                 $componentes_payload[] = [
@@ -3654,7 +3729,8 @@ class OrdenProcesoController extends Controller
                     'inyectada_final' => $valFin,
                     'codigo_formula' => $codigo_formula, // Importante para la agrupación
                     'codigo_color' => $request->input('codigo_color'), // Color from UI
-                    'idop_origen' => $comp['idop_origen'] ?? null
+                    'idop_origen' => $comp['idop_origen'] ?? null,
+                    'peso_unitario_gr' => $peso_unitario_gr_input
                 ];
             }
             
@@ -3669,7 +3745,8 @@ class OrdenProcesoController extends Controller
                 'destino_merma_clip' => $request->input('destino_merma_clip'),
                 'usar_clip_recuperado' => $request->input('usar_clip_recuperado'),
                 'idop_origen' => $request->input('idop_origen'),
-                'cantidad_sets' => ($tipo_operacion === 'encartonado') ? $cantidad_total : null
+                'cantidad_sets' => ($tipo_operacion === 'encartonado') ? $cantidad_total : null,
+                'peso_unitario_gr' => $peso_unitario_gr_input
             ]);
             $fakeRequest->headers->set('X-Requested-With', 'XMLHttpRequest'); // Force AJAX
 

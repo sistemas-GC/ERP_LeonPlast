@@ -61,6 +61,17 @@
                     </x-form-group>
                 </div>
 
+                <div class="col-span-1 md:col-span-2">
+                    <x-form-group label="Peso Estándar por Unidad en Gramos (Conversión KG → UND)" :error="$errors->first('peso_unitario_gr')">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <input type="number" name="peso_unitario_gr" id="peso_unitario_gr" value="{{ old('peso_unitario_gr') }}" min="0.01" step="0.01" class="input-field sm:w-56 @error('peso_unitario_gr') border-red-500 @enderror" placeholder="Ej: 1.99 gr" oninput="calcularEquivalenciaProducto(this.value)">
+                            <span id="badge_equivalencia_prod" class="hidden px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold"></span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-1">Opcional. Complete si el producto se controla en KG pero requiere conversión a unidades (ej. Cáscaras CA o Coladores CO).</p>
+                        @error('peso_unitario_gr') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+                    </x-form-group>
+                </div>
+
                 <div class="col-span-1 md:col-span-2 flex items-center mt-2 bg-slate-50 p-4 rounded-lg border border-slate-200">
                     <input type="hidden" name="es_producto_proceso" value="0">
                     <input type="checkbox" name="es_producto_proceso" id="es_producto_proceso" value="1" {{ old('es_producto_proceso') == '1' ? 'checked' : '' }} class="w-5 h-5 text-primary bg-white border-slate-300 rounded focus:ring-primary focus:ring-2 cursor-pointer">
@@ -78,4 +89,21 @@
         </form>
     </x-card>
 </div>
+<script>
+function calcularEquivalenciaProducto(val) {
+    const badge = document.getElementById('badge_equivalencia_prod');
+    const gr = parseFloat(val);
+    if (gr > 0) {
+        const undPorKg = Math.round(1000 / gr);
+        badge.textContent = `1 KG ≈ ${undPorKg.toLocaleString('es-PE')} UND (${gr} gr/und)`;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById('peso_unitario_gr');
+    if (el && el.value) calcularEquivalenciaProducto(el.value);
+});
+</script>
 @endsection

@@ -46,7 +46,9 @@ class ComponenteOrdenProduccion extends Model
         'estado',
         'numero_ot',
         'tipo_operacion',
-        'observacion'
+        'observacion',
+        'peso_unitario_gr',
+        'lote_produccion_pep'
     ];
 
     public function orden()

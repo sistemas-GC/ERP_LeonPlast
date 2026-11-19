@@ -195,6 +195,20 @@
                         <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">Hasta:</label>
                         <input type="date" name="fecha_hasta" value="{{ request('fecha_hasta') }}" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs text-slate-800 focus:border-primary outline-none shadow-xs">
                     </div>
+                    {{-- Selector Unidad vs Unidades Equivalentes --}}
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1">
+                            <i class="fas fa-exchange-alt text-primary mr-1"></i>Visualizar en:
+                        </label>
+                        <select name="modo_vista" onchange="this.form.submit()" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-800 focus:border-primary outline-none shadow-xs bg-white cursor-pointer">
+                            <option value="original" {{ ($modoVista ?? request('modo_vista', 'original')) === 'original' ? 'selected' : '' }}>
+                                Unidad del Producto (Original)
+                            </option>
+                            <option value="unidades" {{ ($modoVista ?? request('modo_vista')) === 'unidades' ? 'selected' : '' }}>
+                                Unidades Equivalentes (UND)
+                            </option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="flex items-center gap-2">
@@ -377,6 +391,41 @@
                                 $saldoMostrar = $stockActual ?? $ultimoSaldo;
                                 $totalEntradas = $movs->sum('cantidad_entrada');
                                 $totalSalidas = $movs->sum('cantidad_salida');
+
+                                $pesoProdBase = (!empty($prod->peso_unitario_gr) && $prod->peso_unitario_gr > 0)
+                                    ? (float) $prod->peso_unitario_gr
+                                    : ($pesosProductosMap[$prod->codigo_producto] ?? null);
+
+                                // Verificar si algún lote de sus movimientos tiene peso específico
+                                $pesoEfectivoGrupo = $pesoProdBase;
+                                if (!$pesoEfectivoGrupo) {
+                                    foreach ($movs as $mCheck) {
+                                        if ($mCheck->lote && isset($pesosPorLote[$mCheck->lote])) {
+                                            $pesoEfectivoGrupo = (float) $pesosPorLote[$mCheck->lote];
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                $convertirGrupoAUnidades = (($modoVista ?? request('modo_vista', 'original')) === 'unidades') && ($pesoEfectivoGrupo && $pesoEfectivoGrupo > 0);
+                                $umDisplayGrupo = $convertirGrupoAUnidades ? 'UND' : ($prod->codigo_unidad_medida ?? 'KG');
+
+                                if ($convertirGrupoAUnidades) {
+                                    $totEntUnidades = 0;
+                                    $totSalUnidades = 0;
+                                    foreach ($movs as $mCalc) {
+                                        $pMov = ($mCalc->lote && isset($pesosPorLote[$mCalc->lote])) ? (float) $pesosPorLote[$mCalc->lote] : $pesoEfectivoGrupo;
+                                        $totEntUnidades += ($mCalc->cantidad_entrada * 1000) / $pMov;
+                                        $totSalUnidades += ($mCalc->cantidad_salida * 1000) / $pMov;
+                                    }
+                                    $totalEntradasDisplay = number_format(round($totEntUnidades));
+                                    $totalSalidasDisplay = number_format(round($totSalUnidades));
+                                    $saldoMostrarDisplay = number_format(round(($saldoMostrar * 1000) / $pesoEfectivoGrupo));
+                                } else {
+                                    $totalEntradasDisplay = number_format($totalEntradas, 2);
+                                    $totalSalidasDisplay = number_format($totalSalidas, 2);
+                                    $saldoMostrarDisplay = number_format($saldoMostrar, 2);
+                                }
                             @endphp
 
                             <!-- FILA ENCABEZADO DE PRODUCTO -->
@@ -402,18 +451,18 @@
                                                 </span>
                                             @endif
                                             <span class="text-slate-500 font-normal text-xs">
-                                                (U.M.: {{ $prod->unidad_medida_desc ?? $prod->codigo_unidad_medida }})
+                                                (U.M.: {{ $convertirGrupoAUnidades ? 'UNIDADES (' . rtrim(rtrim(number_format($pesoEfectivoGrupo, 4, '.', ''), '0'), '.') . ' gr/und)' : ($prod->unidad_medida_desc ?? $prod->codigo_unidad_medida) }})
                                             </span>
                                         </div>
                                         <div class="flex items-center gap-3 text-xs">
                                             <span class="text-emerald-700 font-bold">
-                                                Entradas: +{{ number_format($totalEntradas, 2) }}
+                                                Entradas: +{{ $totalEntradasDisplay }}
                                             </span>
                                             <span class="text-red-700 font-bold">
-                                                Salidas: -{{ number_format($totalSalidas, 2) }}
+                                                Salidas: -{{ $totalSalidasDisplay }}
                                             </span>
                                             <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-900 font-black border border-blue-200">
-                                                Saldo en este Almacén: {{ number_format($saldoMostrar, 2) }} {{ $prod->codigo_unidad_medida }}
+                                                Saldo en este Almacén: {{ $saldoMostrarDisplay }} {{ $umDisplayGrupo }}
                                             </span>
                                         </div>
                                     </div>
@@ -474,11 +523,24 @@
                                         {{ $mov->observaciones ? $mov->observaciones : '-' }}
                                     </td>
 
+                                    @php
+                                        $pesoMovActual = ($mov->lote && isset($pesosPorLote[$mov->lote])) ? (float) $pesosPorLote[$mov->lote] : $pesoEfectivoGrupo;
+                                        if ($convertirGrupoAUnidades && $pesoMovActual > 0) {
+                                            $entMovStr = number_format(round(($mov->cantidad_entrada * 1000) / $pesoMovActual)) . ' UND';
+                                            $salMovStr = number_format(round(($mov->cantidad_salida * 1000) / $pesoMovActual)) . ' UND';
+                                            $saldoMovStr = number_format(round(($mov->cantidad_saldo * 1000) / $pesoMovActual)) . ' UND';
+                                        } else {
+                                            $entMovStr = number_format($mov->cantidad_entrada, 2);
+                                            $salMovStr = number_format($mov->cantidad_salida, 2);
+                                            $saldoMovStr = number_format($mov->cantidad_saldo, 2);
+                                        }
+                                    @endphp
+
                                     {{-- Entrada --}}
                                     <td class="py-2 px-3 text-right font-mono font-bold whitespace-nowrap">
                                         @if($mov->cantidad_entrada > 0)
                                             <span class="text-emerald-700">
-                                                + {{ number_format($mov->cantidad_entrada, 2) }}
+                                                + {{ $entMovStr }}
                                             </span>
                                         @else
                                             <span class="text-slate-300">-</span>
@@ -489,7 +551,7 @@
                                     <td class="py-2 px-3 text-right font-mono font-bold whitespace-nowrap">
                                         @if($mov->cantidad_salida > 0)
                                             <span class="text-red-600">
-                                                - {{ number_format($mov->cantidad_salida, 2) }}
+                                                - {{ $salMovStr }}
                                             </span>
                                         @else
                                             <span class="text-slate-300">-</span>
@@ -498,7 +560,7 @@
 
                                     {{-- Saldo Físico --}}
                                     <td class="py-2 px-3 text-right font-mono font-black text-slate-900 bg-blue-50/40 whitespace-nowrap">
-                                        {{ number_format($mov->cantidad_saldo, 2) }}
+                                        {{ $saldoMovStr }}
                                     </td>
 
                                     {{-- Usuario --}}

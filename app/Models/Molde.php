@@ -20,6 +20,8 @@ class Molde extends Model
     protected $fillable = [
         'codigo',
         'descripcion',
+        'cavidades',
+        'peso_unitario_gr',
         'activo'
     ];
 
